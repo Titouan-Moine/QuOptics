@@ -68,7 +68,8 @@ def exemple():
   add_edge(g, "Qbit_1", "c_not")
   add_edge(g, "c_not", "empty_tenser1")
   add_edge(g, "c_not", "empty_tenser2")
+  node_colors=['red' if g.nodes[node]['data']==ket_0 else 'blue' if g.nodes[node]['data']==hadamard else 'green' if g.nodes[node]['data']==c_not else 'black' for node in g.nodes()]
   pos = nx.spring_layout(g)  # Positions for all nodes
-  nx.draw(g, pos, with_labels=True, node_color='skyblue', node_size=1500, font_size=12, font_weight='bold')
+  nx.draw(g, pos, with_labels=True, node_color=node_colors, node_size=1500, font_size=12, font_weight='bold')
 exemple()
 plt.show()
