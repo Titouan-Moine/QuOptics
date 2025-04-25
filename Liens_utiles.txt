@@ -1,0 +1,10 @@
+https://arxiv.org/pdf/1912.10049
+https://www.cs.ox.ac.uk/people/aleks.kissinger/theses/raj-thesis.pdf
+https://www.pks.mpg.de/~issqui05/Eckholt.pdf
+https://atomoptics.uoregon.edu/~dsteck/teaching/09spring/phys610/notes/density-operator.pdf
+https://journals.aps.org/prresearch/pdf/10.1103/PhysRevResearch.3.023005
+https://journals.aps.org/prl/pdf/10.1103/PhysRevLett.93.207204
+https://tensornetwork.org/mpo/
+https://arxiv.org/pdf/1008.3477
+https://tensornetwork.readthedocs.io/en/latest/basic_mps.html
+https://arxiv.org/pdf/1911.11566
