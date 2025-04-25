@@ -25,32 +25,32 @@ def add_edge(graph, node1, node2, data=None):
 def get_node_data(graph, node):
   return graph.nodes[node]['data']
 
-# def ket_0():
-#   ket_0 = create_tenser((2, 1))
-#   ket_0[0, 0] = 1
-#   ket_0[1, 0] = 0
-#   return ket_0
-# def ket_1():
-#   ket_1 = create_tenser((2, 1))
-#   ket_1[0, 0] = 0
-#   ket_1[1, 0] = 1
-#   return ket_1
-# def c_not():
-#   c_not = create_tenser((2, 2, 2, 2))
-#   c_not[0, 0, 0, 0] = 1
-#   c_not[0, 0, 1, 1] = 1
-#   c_not[1, 1, 1, 0] = 1
-#   c_not[1, 1, 0, 1] = 1
+def ket_0():
+  ket_0 = create_tenser((2, 1))
+  ket_0[0, 0] = 1
+  ket_0[1, 0] = 0
+  return ket_0
+def ket_1():
+  ket_1 = create_tenser((2, 1))
+  ket_1[0, 0] = 0
+  ket_1[1, 0] = 1
+  return ket_1
+def c_not():
+  c_not = create_tenser((2, 2, 2, 2))
+  c_not[0, 0, 0, 0] = 1
+  c_not[0, 0, 1, 1] = 1
+  c_not[1, 1, 1, 0] = 1
+  c_not[1, 1, 0, 1] = 1
   
-#   return c_not
-# def hadamard():
-#   hadamard = create_tenser((2, 2))
-#   hadamard[0, 0] = 1 / np.sqrt(2)
-#   hadamard[1, 1] = -1 / np.sqrt(2)
-#   hadamard[0, 1] = 1 / np.sqrt(2)
-#   hadamard[1, 0] = 1 / np.sqrt(2)
+  return c_not
+def hadamard():
+  hadamard = create_tenser((2, 2))
+  hadamard[0, 0] = 1 / np.sqrt(2)
+  hadamard[1, 1] = -1 / np.sqrt(2)
+  hadamard[0, 1] = 1 / np.sqrt(2)
+  hadamard[1, 0] = 1 / np.sqrt(2)
   
-  # return hadamard
+  return hadamard
 def exemple():
   g=create_graph()
 
@@ -98,6 +98,14 @@ def exemple2():
   pos = nx.spring_layout(g)  # Positions for all nodes
   nx.draw(g, pos, with_labels=True, node_color=node_colors, node_size=1500, font_size=12, font_weight='bold')
 
+def exemple3():
+  c_not_content = [[[[1, 0], [0, 0]], [[0, 0], [1, 0]]],
+                      [[[0, 0], [0, 1]], [[0, 1], [0, 0]]]]
+  c_not_content[0][0][0][0] = -1
+  c_not_content[0][0][1][1] = -1
+  # c_not_content[1,1,1,0] = -1
+  # c_not_content[1,1,0,1] = -1
+  print(c_not_content)
 #exemple()
 exemple2()
 plt.show()

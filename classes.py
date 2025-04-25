@@ -65,7 +65,8 @@ class Tensor:
     """
     :return: A Tensor object representing the CNOT gate. With control on bit 1 and target bit 2.
     """
-    c_not_content = [[[[1, 0], [0, 0]], [[0, 0], [1, 0]]], [[[0, 0], [0, 1]], [[0, 1], [0, 0]]]]
+    c_not_content = [[[[1, 0], [0, 0]], [[0, 0], [1, 0]]],
+                      [[[0, 0], [0, 1]], [[0, 1], [0, 0]]]]
     return Tensor(dimension=(2, 2, 2, 2), content=c_not_content, name="CNOT")
 
   def hadamard():
