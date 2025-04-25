@@ -2,6 +2,7 @@ from qiskit import QuantumCircuit
 import matplotlib.pyplot as plt
 from qiskit.quantum_info import Pauli
 import math
+import numpy as np
 
 def circuit2():
     c = QuantumCircuit(2)
@@ -13,7 +14,23 @@ def circuit2():
 
 from qiskit.circuit.random import random_circuit
  
-c = random_circuit(4, 4)
+def circuit_test3(): 
+    c = random_circuit(1, 1)
+    print(c)
+
+def build_qft(n):
+   circuit = QuantumCircuit(n)
+   for j in reversed(range(n)):
+       circuit.h(j)
+       for k in reversed(range(j)):
+           circuit.cp(np.pi * 2. ** (k - j), j, k)
+
+   for j in range(n // 2):
+       circuit.swap(j, n - j - 1)
+
+   return circuit
+
+c = build_qft(7)
 print(c)
 
 ####------graphe
