@@ -3,21 +3,28 @@ import numpy as np
 import itertools as it
 
 tensor_types_dict = {
+    'zero_bra' : np.array([1, 0]), # <0|
+    'one_bar' : np.array([0, 1]), # <1|
+    'zero_ket' : np.array([[1], [0]]), # |0>
+    'one_ket' : np.array([[0], [1]]), # |1>
     'H' : (1/np.sqrt(2))*np.array([[1, 1], [1, -1]]), # Hadamard
-    'CX' : np.array([])
+    'CX' : np.array([[[[1, 0], [0, 0]], [[0, 1], [0, 0]]], [[[0, 0], [0, 1]], [[0, 0], [1, 0]]]]) # CNOT
 }
 
 
 class Node:
     def __init__(self, inwires, outwires, tensor=None, tensor_type=None, rank=None, dimensions=None):
         self.tensor_type = tensor_type
-        self.tensor = np.array(tensor) # The tensor itself
         if tensor is None:
+            if tensor_type is None:
+                raise ValueError("tensor and tensor_type cannot be None at the same time.")
             self.tensor = tensor_types_dict[tensor_type]
+        else:
+            self.tensor = np.array(tensor)
         self.dimensions = np.array(dimensions) # List of dimensions of the tensor
         self.rank = rank # Rank of the tensor
         if dimensions is None:
-            self.dimensions = np.array(list(tensor.shape))
+            self.dimensions = np.array(list(self.tensor.shape))
         if rank is None:
             self.rank = len(self.dimensions)
         self.inwires = np.array(inwires) # List of wires (indices) entering this node in order
@@ -49,7 +56,9 @@ class Node:
         
         # lists of inwires and outwires of the resulting tensor
         other_inwires_mask = ~np.isin(other.inwires, common_wires)
+        #print(self.outwires)
         self_outwires_mask = ~np.isin(self.outwires, common_wires)
+        #print(self_outwires_mask)
         other_inwires = other.inwires[other_inwires_mask]
         self_outwires = self.outwires[self_outwires_mask]
         contracted_inwires = np.concatenate((self.inwires, other_inwires))
@@ -58,6 +67,7 @@ class Node:
         # initialize the resulting tensor
         A_indimension = self.get_indimension()
         B_indimension = other.get_indimension()[other_inwires_mask]
+        #print(self.get_outdimension())
         A_outdimension = self.get_outdimension()[self_outwires_mask]
         B_outdimension = other.get_outdimension()
         common_dimension = self.get_outdimension()[~self_outwires_mask] # common dimension of the contracted wires
@@ -92,7 +102,12 @@ class Node:
 
 A = Node(np.array([0, 1]), np.array([0, 1, 2]), np.ones((5, 3, 4, 8, 5)))
 B = Node(np.array([1, 2, 3]), np.array([3, 1]), np.ones((8, 5, 10, 5, 7)))
+# A = Node(np.array([0, 1]), np.array([0, 1]), tensor_type='CX')
+# B = Node(np.array([0, 1]), np.array([0, 1]), tensor_type='CX')
+# B = Node(np.array([0]), np.array([]), tensor_type='zero_ket')
+# C = Node(np.array([1]), np.array([]), tensor_type='one_ket')
 A.contract(B)
+# A.contract(C)
 print(A.tensor)
 print(A.dimensions)
 print(A.inwires, A.outwires)
