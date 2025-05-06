@@ -3,6 +3,9 @@ from classe import *
 from qiskit import QuantumCircuit
 import math
 import numpy as np
+import networkx as nx
+import matplotlib.pyplot as plt
+
 
 def instruction_to_tensor(instr):
     """
@@ -18,13 +21,12 @@ def instruction_to_tensor(instr):
         return None
     
 def circuit_to_tensor_graph(circuit):
-    graph = {}
+    G = nx.DiGraph()
     last_node_on_qubit = {}
-    tensor_nodes = {}
 
     for i in range(circuit.num_qubits):
         qubit_name = f'init_{i}'
-        graph[qubit_name] = []
+        G.add_node(qubit_name)
         last_node_on_qubit[i] = qubit_name
 
     for instr in circuit.data:
@@ -33,24 +35,24 @@ def circuit_to_tensor_graph(circuit):
         gate_id = f'{name}_' + '_'.join(f'{q}' for q in qubits)
 
         # Convertir en Tensor
-        tensor = instruction_to_tensor(instr)
+        """tensor = instruction_to_tensor(instr)
         if tensor:
-            tensor_nodes[gate_id] = tensor
+            G.add_edge(gate_id, tensor)"""
 
-        if gate_id not in graph:
-            graph[gate_id] = []
+        if gate_id not in G.nodes:
+            G.add_node(gate_id)
 
         for q in qubits:
             prev = last_node_on_qubit[q]
-            graph[prev].append(gate_id)
+            G.add_edge(prev,gate_id)
             last_node_on_qubit[q] = gate_id
 
     for i in range(circuit.num_qubits):
         end_node = f'fin_{i}'
-        graph[end_node] = []
-        graph[last_node_on_qubit[i]].append(end_node)
+        G.add_node(end_node)
+        G.add_edge(last_node_on_qubit[i],end_node)
 
-    return graph, tensor_nodes
+    return G
 
 def build_qft(n):
    circuit = QuantumCircuit(n)
@@ -65,33 +67,24 @@ def build_qft(n):
    return circuit
 
 c = build_qft(2)
-graph, tensor_nodes = circuit_to_tensor_graph(c)
+graph = circuit_to_tensor_graph(c)
 
-for node, tensor in tensor_nodes.items():
-    print(f"{node}: {tensor}")
-    print(tensor.get_content())
+"""def positi(nodes):
+    n = len(nodes)
+    cols = math.ceil(math.sqrt(n))-1  # nb de colonnes
+    pos = {}
+    for i, node in enumerate(nodes):
+        print(i)
+        y = -float(node.split('_')[1])
+        x = i
+        pos[node] = (x, y)
+    return pos
+"""
 
-import networkx as nx
-import matplotlib.pyplot as plt
-
-def afficher_graphe_with_networkx(graph):
-    # Créer un objet NetworkX Graph
-    G = nx.DiGraph()  # Graphe dirigé pour représenter les connexions
-
-    # Ajouter des noeuds et des arêtes (edges) dans le graphe
-    for node, successeurs in graph.items():
-        # Ajouter le noeud
-        G.add_node(node)
-        # Ajouter les arêtes sortantes (directes) vers les successeurs
-        for succ in successeurs:
-            G.add_edge(node, succ)
-
-    # Dessiner le graphe avec NetworkX
-    pos = nx.spring_layout(G)  # Positionnement des noeuds dans un espace 2D
-    plt.figure(figsize=(10, 8))
-    
+def afficher_graphe_with_networkx(G):
+    pos = nx.spring_layout(G)
     # Afficher les noeuds
-    nx.draw_networkx_nodes(G, pos, node_size=700, node_color='lightgreen')
+    nx.draw_networkx_nodes(G, pos,node_size=700, node_color='lightgreen')
     
     # Afficher les arêtes
     nx.draw_networkx_edges(G, pos, edgelist=G.edges(), width=2, alpha=0.6, edge_color='gray')
