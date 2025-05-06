@@ -2,15 +2,17 @@ import numpy as np
 import qiskit as qk 
 from qiskit.circuit.random import random_circuit
 from qiskit.quantum_info import Operator
+from qiskit.circuit.library import HGate, CXGate
+
 import tkinter as tk
 import random
 import numpy as np
 from time import sleep
-
+print(qk.__version__)
 ############## Fonctions de construction de tenseurs ###########################
 ##############################################################################
 def swap_tensor():
-    swap = np.zeros((2, 2, 2, 2), dtype=np.complex128)
+    swap = np.zeros((2, 2, 2, 2), dtype=np.float64)
     
     for i1 in range(2):
         for i2 in range(2):
@@ -19,16 +21,16 @@ def swap_tensor():
     return swap
 
 def cnot_tensor():
-    cnot = np.zeros((2, 2, 2, 2), dtype=np.complex128)
-    
-    for i1 in range(2):
-        for i2 in range(2):
-            cnot[i1, i2, i1, i1^i2] = 1
+    cnot = np.zeros((2, 2, 2, 2), dtype=np.float64)
+    cnot[1, 0, 1, 1] = 1
+    cnot[1, 1, 1, 0] = 1
+    cnot[0, 0, 0, 0] = 1
+    cnot[0, 1, 0, 1] = 1
     
     return cnot
 
 def hadamard_tensor():
-    hadamard = np.zeros((2, 2), dtype=np.complex128)
+    hadamard = np.zeros((2, 2), dtype=np.float64)
     
     for i in range(2):
         for j in range(2):
@@ -37,12 +39,35 @@ def hadamard_tensor():
     
     return hadamard
 
+def not_tensor():
+    not_t = np.zeros((2, 2), dtype=np.float64)
+    not_t[1,0]=1
+    not_t[0,1]=1
+    
+    return not_t
+
+def flip_qubit_ordering(matrix):
+    dim = matrix.shape[0]
+    n = int(np.log2(dim))
+    assert matrix.shape == (dim, dim), "Matrix must be square and 2^n x 2^n"
+
+    def reverse_bits(x, n):
+        return int(f"{x:0{n}b}"[::-1], 2)
+
+    perm = [reverse_bits(i, n) for i in range(dim)]
+    flipped_matrix = matrix[np.ix_(perm, perm)]
+    return flipped_matrix.T
+
+
 swap_tensor=swap_tensor()
 cnot_tensor=cnot_tensor()
 hadamard_tensor=hadamard_tensor()
+not_tensor=not_tensor()
 
-print(cnot_tensor)
-tensors={'swap': swap_tensor, 'cx': cnot_tensor, 'h': hadamard_tensor}
+cx_gate = CXGate()
+cx_matrix = HGate().to_matrix()
+print(cx_matrix)
+tensors={'swap': swap_tensor, 'cx': cnot_tensor, 'h': hadamard_tensor, 'x':not_tensor}
 
 ######### Circuit d'exemple ###########################################
 #######################################################################
@@ -57,8 +82,19 @@ def build_qft(n, n_gates=5):
 #    for j in range(n // 2):
 #        circuit.swap(j, n - j - 1)
    for i in range(n_gates):
-       q1, q2 = random.sample(range(n), 2)
-       circuit.cx(q1, q2)
+        g = random.randint(0, 3)
+        if g ==0:
+           q1 = random.sample(range(n), 1)
+           circuit.h(q1)
+        elif g == 1:
+            q1 = random.sample(range(n), 1)
+            circuit.x(q1)
+        elif g == 2:
+            q1, q2 = random.sample(range(n), 2)
+            circuit.cx(q1, q2)
+        elif g == 3:
+            q1, q2 = random.sample(range(n), 2)
+            circuit.swap(q1, q2)
    return circuit
 def build_simple_qft():
    circuit = qk.QuantumCircuit(2)
@@ -102,20 +138,13 @@ def instruction_list(circuit):
 #instruction_list(qft)
 
 
-############### Circuit Qiskit aléatoire################################## 
-from qiskit.circuit.random import random_circuit
- 
-circ = random_circuit(5, 5, measure=False, max_operands=2)
-circ.draw(output='mpl')
-###########################################################################
-
 class TensorNode:
     def __init__(self, name, qubits, params=None):
         self.name = name  # Nom de l'opération (ex: 'H', 'CNOT', etc.)
         self.nb_qubits = len(qubits)  # Nombre de qubits impliqués dans l'opération
         self.qubits = qubits  # Liste des qubits impliqués dans l'opération
         self.params = params if params is not None else []  # Paramètres de l'opération (s'il y en a)
-        self.tensor = tensors.get(name)  # Tenseur associé à l'opération (initialisé à None)
+        self.tensor = tensors.get(name)  
         self.neighbors = [None]*2*self.nb_qubits
         self.neighbors_ind = [None]*2*self.nb_qubits
         self.wires = {}
@@ -146,10 +175,10 @@ def from_instruction_to_graph(instruction_list, n_lanes):
         for i in range(len(node.qubits)):
             k=node.qubits[i]
             if k < len(latest):
-                latest[k].set_neighbor(node, latest[k].wires[k] + (latest[k].nb_qubits if latest[k].nb_qubits>1 else 0))
-                latest[k].neighbors_ind[latest[k].wires[k] + (latest[k].nb_qubits if latest[k].nb_qubits>1 else 0)]= node.wires[k]
+                latest[k].set_neighbor(node, latest[k].wires[k] + (latest[k].nb_qubits if not isinstance(latest[k], SingleTensorNode)else 0))
+                latest[k].neighbors_ind[latest[k].wires[k] + (latest[k].nb_qubits if not isinstance(latest[k], SingleTensorNode) else 0)]= node.wires[k]
                 node.set_neighbor(latest[k], node.wires[k])
-                node.neighbors_ind[node.wires[k]] = latest[k].wires[k] + (latest[k].nb_qubits if latest[k].nb_qubits>1 else 0)
+                node.neighbors_ind[node.wires[k]] = latest[k].wires[k] + (latest[k].nb_qubits if not isinstance(latest[k], SingleTensorNode) else 0)
         for i in range(len(node.qubits)):
             k=node.qubits[i]
             if k < len(latest):
@@ -164,10 +193,10 @@ def from_instruction_to_graph(instruction_list, n_lanes):
     
     for i in range(n_lanes):
         add_to_graph(SingleTensorNode('end', i, params=[i]))
-    print("before")
-    for i in nodes:
-        print(i)
-    print("end before")
+    #print("before")
+    #for i in nodes:
+    #    print(i)
+    #print("end before")
     return nodes
 
 def print_nodes(nodes):
@@ -191,6 +220,7 @@ def contract_tensors(tensorNode1, tensorNode2):
     for ind in common_indices:
         if tensorNode1.tensor.shape[ind[0]] != tensorNode2.tensor.shape[ind[1]]:
             raise ValueError("Mauvaise taille mon reuf t'as fait de la D")
+    
     indices1 = []
     for i in range(len(tensorNode1.neighbors)):
         if i not in taken_indices1:
@@ -199,14 +229,14 @@ def contract_tensors(tensorNode1, tensorNode2):
     for i in range(len(tensorNode2.neighbors)):
         if i not in taken_indices2:
             indices2.append(i)
-
+    """
     dim = []
     for i in indices1:
         dim.append(tensorNode1.tensor.shape[i])
     for i in indices2:
         dim.append(tensorNode2.tensor.shape[i])
     
-    tensor3 = np.zeros(dim, dtype=np.complex128)
+    tensor3 = np.zeros(dim, dtype=np.float64)
     
     def summ_commons(parc):
         s=0 
@@ -253,7 +283,14 @@ def contract_tensors(tensorNode1, tensorNode2):
                 parc.append(j)
                 browse_inds(i+1)
                 parc.pop()
-    browse_inds(0)        
+    browse_inds(0)
+    """
+    az = []
+    bz = []
+    for l in common_indices:
+        az.append(l[0])
+        bz.append(l[1])
+    tensor3 = np.tensordot(tensorNode1.tensor, tensorNode2.tensor, axes = (az, bz))
     return tensor3, common_indices, indices1, indices2
 
 def contract_nodes(tensorNode1, tensorNode2):
@@ -282,17 +319,36 @@ def contract_nodes(tensorNode1, tensorNode2):
     tensorNode3.neighbors = neighbors3
     tensorNode3.tensor = tensor3
     tensorNode3.neighbors_ind = neighbors3_ind
-    print("contracted result : ", tensorNode3)
-    print("tensor : ", tensor3)
+    #print("contracted result : ", tensorNode3)
+    #print("tensor : ", tensor3)
     return tensorNode3
+
+def final_matrix(tensorNode):
+    newOrder = [-1]*len(tensorNode.neighbors)
+    mid = len(tensorNode.neighbors)//2
+    #print(mid)
+    t = tensorNode.tensor
     
+    for i in range(len(tensorNode.neighbors)):
+        n=tensorNode.neighbors[i]
+        if n.name == 'start':
+            newOrder[n.params[0]]=i
+        if n.name == 'end':
+            newOrder[mid+n.params[0]]=i
+
+    t = np.transpose(t, axes = newOrder)
+    
+    mat = t.reshape(2**mid, 2**mid)
+    return mat
+
 def display_graph_tkinter(nodesOrigin, n_lanes):
+    global ope_version
     nodes = nodesOrigin.copy()
     # Create a Tkinter window
     
     # Create a canvas to draw the graph
     canvas_width = 1200
-    canvas_height = 800
+    canvas_height = 750
     canvas = tk.Canvas(window, width=canvas_width, height=canvas_height, bg="white")
     canvas.pack()
     
@@ -301,12 +357,17 @@ def display_graph_tkinter(nodesOrigin, n_lanes):
         canvas.delete("all")
         visited = [False] * len(nodes)
         reached_fusion_point=False
+        #print('start dfs')
+        last_true_node =None
         def dfs(node):
-            nonlocal reached_fusion_point, visited, nodes
+            nonlocal reached_fusion_point, visited, nodes, last_true_node
             if reached_fusion_point:
                 return
             visited[nodes.index(node)] = True
             for neighbor in node.neighbors:
+                if len(neighbor.neighbors)>1:
+                    #print("got one")
+                    last_true_node = neighbor
                 if neighbor is not None and not visited[nodes.index(neighbor)]:
                     if len(node.neighbors)>1 and len(neighbor.neighbors)>1:
                         reached_fusion_point=True
@@ -314,6 +375,7 @@ def display_graph_tkinter(nodesOrigin, n_lanes):
                         nodes.remove(node)
                         nodes.remove(neighbor)
                         nodes = nodes[:n_lanes] + [node3] + nodes[n_lanes:]
+                        last_true_node = node3
                         return
                     dfs(neighbor)
         for i in range(len(nodes)):
@@ -321,6 +383,14 @@ def display_graph_tkinter(nodesOrigin, n_lanes):
                 dfs(nodes[i])
                 if reached_fusion_point:
                     break
+        if not reached_fusion_point:
+            print('finished')
+            m = flip_qubit_ordering(final_matrix(last_true_node))
+            print(m)
+            if np.array_equal(m, ope_version):
+                print("it matches")
+            else:
+                print("ERROR: different output !!!")
         # for i in range(len(nodes)):
         #     if len(nodes[i].neighbors)>1 and len(nodes[i+1].neighbors)>1 and nodes[i] in nodes[i+1].neighbors:
         #         CTensorNode = contract_nodes(nodes[i], nodes[i+1])
@@ -379,17 +449,25 @@ def display_graph_tkinter(nodesOrigin, n_lanes):
     
 
 # Example usage
-qft = build_qft(3, 3)
+n_l=3
+n_g=5
+qft = build_qft(n_l, n_g)
 print(qft)
 print(qft.data, len(qft.data))
 
 instruction_list_example = instruction_list(qft)
-graph_nodes = from_instruction_to_graph(instruction_list_example, n_lanes=3)
+graph_nodes = from_instruction_to_graph(instruction_list_example, n_lanes=n_l)
 print(len(graph_nodes))
+for g in graph_nodes:
+    print(g)
+print("qiskit calculation")
+ope_version = Operator(qft).data.astype(np.float64)
+print(Operator(qft).data.astype(np.float64))
 window = tk.Tk()
 window.title("Graph Visualization")
-display_graph_tkinter(graph_nodes, n_lanes=3)
+display_graph_tkinter(graph_nodes, n_lanes=n_l)
 window.mainloop()
+
 
 # t1=TensorNode('swap', [0, 1], [0, 1])
 # t2=TensorNode('swap', [1, 0], [0, 1])
