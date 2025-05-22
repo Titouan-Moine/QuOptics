@@ -66,23 +66,31 @@ def build_qft(n):
 
    return circuit
 
-c = build_qft(2)
+nqbit =2
+c = build_qft(nqbit)
 graph = circuit_to_tensor_graph(c)
 
-"""def positi(nodes):
-    n = len(nodes)
-    cols = math.ceil(math.sqrt(n))-1  # nb de colonnes
+def positi(G, nqbit):
+    n = len(G)  # nb de point
+    j = 0
     pos = {}
-    for i, node in enumerate(nodes):
+    for i in range(nqbit):
         print(i)
-        y = -float(node.split('_')[1])
-        x = i
-        pos[node] = (x, y)
+        pos[i] = (0, i)
+        pos[n-i] = (n-2*nqbit +1, nqbit-i-1)
+    for i in range(nqbit, n-nqbit):
+        print(i-nqbit+1)
+        pos[i] = (i-nqbit+1, j)
+        if j == nqbit:
+            j=0
+        else :
+            j+=1
     return pos
-"""
 
-def afficher_graphe_with_networkx(G):
-    pos = nx.spring_layout(G)
+
+def afficher_graphe_with_networkx(G, n):
+    #pos = nx.spring_layout(G) 
+    pos = positi(G, n)
     # Afficher les noeuds
     nx.draw_networkx_nodes(G, pos,node_size=700, node_color='lightgreen')
     
@@ -96,4 +104,4 @@ def afficher_graphe_with_networkx(G):
     plt.axis("off")  # Désactive les axes
     plt.show()
 
-afficher_graphe_with_networkx(graph)
+afficher_graphe_with_networkx(graph, nqbit)
