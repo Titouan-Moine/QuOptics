@@ -314,13 +314,13 @@ def clements_decomposition(U, project=True):
                 else:
                     Ucopy = Tmn @ Ucopy
                 left_decomposition.append((N-d+k-1, N-d+k, phi, theta))
-    decomposition = (left_decomposition[::-1], right_decomposition)
+    decomposition = (left_decomposition, right_decomposition)
     # print(np.round(Ucopy, 5))
     # print(decomposition)
     return (decomposition, project_D(Ucopy)) if project else (decomposition, Ucopy)
 
-def clements_scheme(D, decomposition, project=True):
-    """Modifies the celements decomposition in order to get rid of the inverses.
+def clements_invert_left(D, left_decomposition, project=True):
+    """Modifies the celements left decomposition in order to get rid of the inverses.
     
     Uses a trick to move all the inverses to the right of the decomposition, c.f. clements et al.
     
@@ -328,8 +328,8 @@ def clements_scheme(D, decomposition, project=True):
     ----------
     D : np.ndarray
         An N×N diagonal unitary matrix, represents U after decomposition.
-    decomposition : list of tuple
-        A list of tuples (m, n, phi, theta) representing the decomposition elements.
+    left_decomposition : list of tuple
+        A list of tuples (m, n, phi, theta) representing the left decomposition elements.
     project : bool, optional
         Whether to project intermediate 2×2 matrices onto U(2) and the final diagonal
         matrix for numerical stability.
@@ -345,8 +345,60 @@ def clements_scheme(D, decomposition, project=True):
     ValueError
         If the input matrix is not square.
     """
-    pass
+    Dprime = D.copy()
+    N = D.shape[0]
+    if project:
+        Dprime = project_D(D)
     
+    inverse_ldecomp = []
+    for i, (m, n, phi, theta) in enumerate(left_decomposition):
+        dm = - np.exp(1j * phi) * Dprime[n, n]
+        phi = np.pi + np.angle(Dprime[m, m]) - np.angle(Dprime[n, n])
+        Dprime[m, m] = dm
+        if project:
+            Dprime = project_D(Dprime)
+        inverse_ldecomp.append((m, n, phi, theta))
+    return inverse_ldecomp[::-1], Dprime
+
+def full_clements(U, project=True):
+    """Performs the full Clements decomposition of a unitary matrix.
+    
+    Combines the decomposition and inversion of the left decomposition to yield
+    a full sequence of beam splitters and phase shifters that implement the
+    original unitary matrix.
+    
+    Parameters
+    ----------
+    U : np.ndarray
+        An N×N unitary matrix to be decomposed (complex entries).
+    project : bool, optional
+        Whether to project intermediate 2×2 matrices onto U(2) and the final diagonal
+        matrix for numerical stability.
+        Default is True.
+    
+    Returns
+    -------
+    list of tuple
+        A list of tuples (m, n, phi, theta) representing the full decomposition elements.
+    
+    Raises
+    ------
+    ValueError
+        If the input matrix is not square.
+    """
+    
+    if U.shape[0] != U.shape[1]:
+        raise ValueError("Input matrix must be square.")
+    if not np.allclose(U.conj().T @ U, np.eye(U.shape[0])):
+        raise ValueError("Input matrix must be unitary.")
+    
+    decomposition, D = clements_decomposition(U, project=project)
+    left_decomposition, right_decomposition = decomposition
+    inverted_left, Dfinal = clements_invert_left(D, left_decomposition, project=project)
+    full_decomposition = inverted_left + right_decomposition
+    return full_decomposition, Dfinal
+
+
 
 # clements_decomposition(random_unitary(4))
 # Ur = random_unitary(4)

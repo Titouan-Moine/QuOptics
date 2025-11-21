@@ -267,6 +267,223 @@ class TestClementsDecomposition(unittest.TestCase):
             # Check unitarity
             self.assertTrue(np.allclose(D.conj().T @ D, np.eye(n)))
 
+class TestClementsInvertLeft(unittest.TestCase):
+    def test_clements_invert_left_output_structure(self):
+        """Test that clements_invert_left returns correct structure."""
+        U = rnd_unitary.random_unitary(4)
+        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        left_decomp, right_decomp = decomposition
+        
+        inverted_left, D_final = clements_scheme.clements_invert_left(D, left_decomp, project=True)
+        
+        # Check that inverted_left is a list
+        self.assertIsInstance(inverted_left, list)
+        
+        # Check that D_final is a numpy array
+        self.assertIsInstance(D_final, np.ndarray)
+        
+        # Check dimensions
+        self.assertEqual(D_final.shape, D.shape)
+    
+    def test_clements_invert_left_tuple_format(self):
+        """Test that inverted left decomposition tuples have correct format."""
+        U = rnd_unitary.random_unitary(3)
+        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        left_decomp, right_decomp = decomposition
+        
+        inverted_left, D_final = clements_scheme.clements_invert_left(D, left_decomp, project=True)
+        
+        # Check that all elements are tuples of 4 elements
+        for elem in inverted_left:
+            self.assertEqual(len(elem), 4)
+            self.assertIsInstance(elem[0], (int, np.integer))
+            self.assertIsInstance(elem[1], (int, np.integer))
+            self.assertIsInstance(elem[2], (float, np.floating))
+            self.assertIsInstance(elem[3], (float, np.floating))
+    
+    def test_clements_invert_left_diagonal_result(self):
+        """Test that D_final from clements_invert_left is diagonal."""
+        U = rnd_unitary.random_unitary(4)
+        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        left_decomp, right_decomp = decomposition
+        
+        inverted_left, D_final = clements_scheme.clements_invert_left(D, left_decomp, project=True)
+        
+        # D_final should be diagonal
+        off_diag_mask = ~np.eye(4, dtype=bool)
+        self.assertTrue(np.allclose(D_final[off_diag_mask], 0, atol=1e-10))
+    
+    def test_clements_invert_left_unitarity(self):
+        """Test that D_final is unitary."""
+        U = rnd_unitary.random_unitary(3)
+        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        left_decomp, right_decomp = decomposition
+        
+        inverted_left, D_final = clements_scheme.clements_invert_left(D, left_decomp, project=True)
+        
+        # D_final should be unitary
+        identity = np.eye(3)
+        self.assertTrue(np.allclose(D_final.conj().T @ D_final, identity))
+    
+    def test_clements_invert_left_with_projection(self):
+        """Test clements_invert_left with projection enabled."""
+        U = rnd_unitary.random_unitary(4)
+        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        left_decomp, right_decomp = decomposition
+        
+        inverted_left, D_final = clements_scheme.clements_invert_left(D, left_decomp, project=True)
+        
+        # Result should be diagonal and unitary
+        off_diag_mask = ~np.eye(4, dtype=bool)
+        self.assertTrue(np.allclose(D_final[off_diag_mask], 0, atol=1e-10))
+        self.assertTrue(np.allclose(D_final.conj().T @ D_final, np.eye(4)))
+    
+    def test_clements_invert_left_without_projection(self):
+        """Test clements_invert_left with projection disabled."""
+        U = rnd_unitary.random_unitary(3)
+        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        left_decomp, right_decomp = decomposition
+        
+        inverted_left, D_final = clements_scheme.clements_invert_left(D, left_decomp, project=False)
+        
+        # Even without projection, D_final should be close to diagonal
+        off_diag_mask = ~np.eye(3, dtype=bool)
+        self.assertTrue(np.allclose(D_final[off_diag_mask], 0, atol=1e-8))
+    
+    def test_clements_invert_left_preserves_dimension(self):
+        """Test that clements_invert_left preserves matrix dimension."""
+        for n in [2, 3, 4, 5]:
+            U = rnd_unitary.random_unitary(n)
+            decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+            left_decomp, right_decomp = decomposition
+            
+            inverted_left, D_final = clements_scheme.clements_invert_left(D, left_decomp, project=True)
+            
+            self.assertEqual(D_final.shape, (n, n))
+
+class TestFullClements(unittest.TestCase):
+    def test_full_clements_output_structure(self):
+        """Test that full_clements returns correct structure."""
+        U = rnd_unitary.random_unitary(4)
+        full_decomp, D_final = clements_scheme.full_clements(U, project=True)
+        
+        # Check that full_decomp is a list
+        self.assertIsInstance(full_decomp, list)
+        
+        # Check that D_final is a numpy array
+        self.assertIsInstance(D_final, np.ndarray)
+    
+    def test_full_clements_tuple_format(self):
+        """Test that full_clements tuples have correct format."""
+        U = rnd_unitary.random_unitary(3)
+        full_decomp, D_final = clements_scheme.full_clements(U, project=True)
+        
+        # Check that all elements are tuples of 4 elements
+        for elem in full_decomp:
+            self.assertEqual(len(elem), 4)
+            self.assertIsInstance(elem[0], (int, np.integer))
+            self.assertIsInstance(elem[1], (int, np.integer))
+            self.assertIsInstance(elem[2], (float, np.floating))
+            self.assertIsInstance(elem[3], (float, np.floating))
+    
+    def test_full_clements_non_square(self):
+        """Test that full_clements raises error for non-square matrices."""
+        U = np.random.rand(3, 4) + 1j * np.random.rand(3, 4)
+        
+        with self.assertRaises(ValueError):
+            clements_scheme.full_clements(U)
+    
+    def test_full_clements_non_unitary(self):
+        """Test that full_clements raises error for non-unitary matrices."""
+        U = np.random.rand(3, 3) + 1j * np.random.rand(3, 3)
+        
+        with self.assertRaises(ValueError):
+            clements_scheme.full_clements(U)
+    
+    def test_full_clements_diagonal_result(self):
+        """Test that D_final from full_clements is diagonal."""
+        U = rnd_unitary.random_unitary(4)
+        full_decomp, D_final = clements_scheme.full_clements(U, project=True)
+        
+        # D_final should be diagonal
+        off_diag_mask = ~np.eye(4, dtype=bool)
+        self.assertTrue(np.allclose(D_final[off_diag_mask], 0, atol=1e-10))
+    
+    def test_full_clements_unitarity(self):
+        """Test that D_final is unitary."""
+        U = rnd_unitary.random_unitary(3)
+        full_decomp, D_final = clements_scheme.full_clements(U, project=True)
+        
+        # D_final should be unitary
+        identity = np.eye(3)
+        self.assertTrue(np.allclose(D_final.conj().T @ D_final, identity))
+    
+    def test_full_clements_with_projection(self):
+        """Test full_clements with projection enabled."""
+        U = rnd_unitary.random_unitary(4)
+        full_decomp, D_final = clements_scheme.full_clements(U, project=True)
+        
+        # Result should be diagonal and unitary
+        off_diag_mask = ~np.eye(4, dtype=bool)
+        self.assertTrue(np.allclose(D_final[off_diag_mask], 0, atol=1e-10))
+        self.assertTrue(np.allclose(D_final.conj().T @ D_final, np.eye(4)))
+    
+    def test_full_clements_without_projection(self):
+        """Test full_clements with projection disabled."""
+        U = rnd_unitary.random_unitary(3)
+        full_decomp, D_final = clements_scheme.full_clements(U, project=False)
+        
+        # Even without projection, D_final should be close to diagonal
+        off_diag_mask = ~np.eye(3, dtype=bool)
+        self.assertTrue(np.allclose(D_final[off_diag_mask], 0, atol=1e-8))
+    
+    def test_full_clements_preserves_dimension(self):
+        """Test that full_clements preserves matrix dimension."""
+        for n in [2, 3, 4, 5]:
+            U = rnd_unitary.random_unitary(n)
+            full_decomp, D_final = clements_scheme.full_clements(U, project=True)
+            
+            self.assertEqual(D_final.shape, (n, n))
+    
+    def test_full_clements_consistency(self):
+        """Test that full_clements gives consistent results for the same input."""
+        U = rnd_unitary.random_unitary(3)
+        full_decomp1, D_final1 = clements_scheme.full_clements(U, project=True)
+        full_decomp2, D_final2 = clements_scheme.full_clements(U, project=True)
+        
+        # Results should be identical
+        self.assertEqual(len(full_decomp1), len(full_decomp2))
+        self.assertTrue(np.allclose(D_final1, D_final2))
+    
+    def test_full_clements_no_inverses(self):
+        """Test that full_clements decomposition contains only forward operations."""
+        U = rnd_unitary.random_unitary(4)
+        full_decomp, D_final = clements_scheme.full_clements(U, project=True)
+        
+        # All beam splitters should have valid indices
+        N = U.shape[0]
+        for m, n, phi, theta in full_decomp:
+            self.assertGreaterEqual(m, 0)
+            self.assertGreaterEqual(n, 0)
+            self.assertLess(m, N)
+            self.assertLess(n, N)
+            # phi and theta should be real numbers
+            self.assertIsInstance(phi, (float, np.floating))
+            self.assertIsInstance(theta, (float, np.floating))
+    
+    def test_full_clements_different_sizes(self):
+        """Test full_clements works for different matrix sizes."""
+        for n in [2, 3, 4, 5]:
+            U = rnd_unitary.random_unitary(n)
+            full_decomp, D_final = clements_scheme.full_clements(U, project=True)
+            
+            # Check diagonal result
+            off_diag_mask = ~np.eye(n, dtype=bool)
+            self.assertTrue(np.allclose(D_final[off_diag_mask], 0, atol=1e-10))
+            
+            # Check unitarity
+            self.assertTrue(np.allclose(D_final.conj().T @ D_final, np.eye(n)))
+
 
 if __name__ == '__main__':
     unittest.main()
