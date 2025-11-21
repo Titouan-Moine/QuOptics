@@ -1,20 +1,57 @@
+"""Clements scheme for decomposing unitary matrices into beam splitters and phase shifters.
+
+This module implements the Clements decomposition algorithm, which decomposes any N×N
+unitary matrix into a product of elementary beam splitter operations and phase shifts.
+This decomposition is fundamental for implementing arbitrary photonic quantum gates
+in linear optical quantum computing.
+
+The algorithm works by systematically nullifying elements of the unitary matrix
+using sequences of beam splitters and phase shifters, building up the decomposition
+through a structured diagonal-by-diagonal elimination process.
+
+Functions
+---------
+T : Create a beam splitter matrix
+inverse_T : Create the inverse of a beam splitter matrix
+project_U2 : Project a 2×2 matrix onto U(2)
+nullify_row : Calculate parameters to nullify a matrix row element
+nullify_column : Calculate parameters to nullify a matrix column element
+clements_scheme : Main function to decompose a unitary matrix
+
+References
+----------
+Clements, W. R., Renema, J. J., & O'Brien, J. L. (2016). "Optimal design for 
+universal multiport interferometers." Optica, 3(12), 1460-1465.
+"""
+
 import numpy as np
 from rnd_unitary import random_unitary
 
 def T(m, n, phi, theta, N):
-    """
-    Constructs a beam splitter matrix acting on modes m and n with parameters phi and theta
-    in an N-dimensional space.
-
-    Parameters:
-    m (int): The first mode index.
-    n (int): The second mode index.
-    phi (float): The phase parameter.
-    theta (float): The mixing angle.
-    N (int): The total number of modes.
-
-    Returns:
-    np.ndarray: The beam splitter matrix.
+    """Constructs a beam splitter matrix acting on modes m and n.
+    
+    Parameters
+    ----------
+    m : int
+        The first mode index (0-indexed).
+    n : int
+        The second mode index (0-indexed).
+    phi : float
+        The phase parameter (in radians).
+    theta : float
+        The mixing angle (in radians).
+    N : int
+        The total number of modes in the system.
+    
+    Returns
+    -------
+    np.ndarray
+        An N×N unitary beam splitter matrix with complex entries.
+    
+    Raises
+    ------
+    ValueError
+        If m >= N or n >= N.
     """
     
     if m >= N:
@@ -35,19 +72,30 @@ def T(m, n, phi, theta, N):
     return T
 
 def inverse_T(m, n, phi, theta, N):
-    """
-    Constructs the inverse of a beam splitter matrix acting on modes m and n with parameters phi and theta
-    in an N-dimensional space.
-
-    Parameters:
-    m (int): The first mode index.
-    n (int): The second mode index.
-    phi (float): The phase parameter.
-    theta (float): The mixing angle.
-    N (int): The total number of modes.
-
-    Returns:
-    np.ndarray: The inverse beam splitter matrix.
+    """Constructs the inverse of a beam splitter matrix.
+    
+    Parameters
+    ----------
+    m : int
+        The first mode index (0-indexed).
+    n : int
+        The second mode index (0-indexed).
+    phi : float
+        The phase parameter (in radians).
+    theta : float
+        The mixing angle (in radians).
+    N : int
+        The total number of modes in the system.
+    
+    Returns
+    -------
+    np.ndarray
+        An N×N unitary matrix that is the inverse of T(m, n, phi, theta, N).
+    
+    Raises
+    ------
+    ValueError
+        If m >= N or n >= N.
     """
     
     if m >= N:
@@ -68,32 +116,73 @@ def inverse_T(m, n, phi, theta, N):
     return T_inv
 
 def project_U2(A):
-    """Projects a 2x2 matrix A onto the unitary group U(2).
-
-    Args:
-        A (2x2 complex matrix): input matrix to be projected
-
-    Returns:
-        2x2 complex matrix: projected unitary matrix
+    """Projects a 2×2 matrix onto the unitary group U(2).
+    
+    Parameters
+    ----------
+    A : np.ndarray
+        A 2×2 complex matrix to be projected.
+    
+    Returns
+    -------
+    np.ndarray
+        A 2×2 unitary matrix (closest to A in Frobenius norm).
     """
     U, S, Vh = np.linalg.svd(A)
     return U @ Vh
 
+def project_D(D):
+    """Projects a diagonal matrix onto the unitary group U(N).
+    
+    Parameters
+    ----------
+    D : np.ndarray
+        An N×N almost diagonal complex matrix to be projected.
+    
+    Returns
+    -------
+    np.ndarray
+        An N×N unitary diagonal matrix (closest to D in Frobenius norm).
+    """
+    N = D.shape[0]
+    if D.shape[1] != N:
+        raise ValueError("Input matrix must be square.")
+    
+    diag_mask = np.eye(D.shape[0], dtype=bool)
+    if not np.allclose(D[~diag_mask], 0):
+        raise ValueError("Input matrix must be (almost) diagonal.")
+
+    D_proj = np.zeros((N, N), dtype=complex)
+    for i in range(N):
+        phase = np.angle(D[i, i])
+        D_proj[i, i] = np.exp(1j * phase)
+    return D_proj
+
 def nullify_row(U, i, j, m, n):
-    """_summary_
-
-    Args:
-        U (int matrix): unitary matrix to be transformed
-        i (int): row index to be nullified
-        j (int): column index to be nullified
-        m (int): first row index for the beam splitter
-        n (int): second row index for the beam splitter
-
-    Raises:
-        ValueError: if i is not m or n
-
-    Returns:
-        _type_: np.ndarray: beam splitter matrix that nullifies U[i,j]
+    """Calculate beam splitter parameters to nullify a matrix row element.
+    
+    Parameters
+    ----------
+    U : np.ndarray
+        The unitary matrix to be transformed.
+    i : int
+        The row index of the element to be nullified.
+    j : int
+        The column index of the element to be nullified.
+    m : int
+        The first row index for the beam splitter.
+    n : int
+        The second row index for the beam splitter.
+    
+    Returns
+    -------
+    tuple of (float, float)
+        A tuple (phi, theta) containing the phase parameter and mixing angle.
+    
+    Raises
+    ------
+    ValueError
+        If i is not equal to either m or n.
     """
     
     if i not in (m, n):
@@ -114,19 +203,30 @@ def nullify_row(U, i, j, m, n):
     return phi, theta
 
 def nullify_column(U, i, j, m, n):
-    """_summary_
-
-    Args:
-        U (int matrix): unitary matrix to be transformed
-        i (int): row index to be nullified
-        j (int): column index to be nullified
-        m (int): first column index for the beam splitter
-        n (int): second column index for the beam splitter
-
-    Raises:
-        ValueError: if j is not m or n
-    Returns:
-        _type_: np.ndarray: inverse of the beam splitter matrix that nullifies U[i,j]
+    """Calculate beam splitter parameters to nullify a matrix column element.
+    
+    Parameters
+    ----------
+    U : np.ndarray
+        The unitary matrix to be transformed.
+    i : int
+        The row index of the element to be nullified.
+    j : int
+        The column index of the element to be nullified.
+    m : int
+        The first column index for the beam splitter.
+    n : int
+        The second column index for the beam splitter.
+    
+    Returns
+    -------
+    tuple of (float, float)
+        A tuple (phi, theta) containing the phase parameter and mixing angle.
+    
+    Raises
+    ------
+    ValueError
+        If j is not equal to either m or n.
     """
     
     if j not in (m, n):
@@ -158,18 +258,31 @@ Uf = (1/np.sqrt(3)) * np.array([[1, 1, 1],
 # print(np.round(project_U2(nullify_row(Ur, 0, 1, 0, 1))@Ur, 10))
 # print(np.round(project_U2(nullify_row(Uf, 0, 1, 0, 1))@Uf,10))
 
-def clements_scheme(U):
-    """
-    Decomposes a given unitary matrix U into a sequence of beam splitters and phase shifters
-    following the Clements scheme.
-
-    Parameters:
-    U (np.ndarray): The unitary matrix to be decomposed.
-
-    Returns:
-    list: A list of tuples representing the beam splitters and phase shifters.
-          Each tuple contains (m, n, phi, theta) where phi and theta are the Euler angles
-          and m and n are the mode indices.
+def clements_decomposition(U, project=True):
+    """Decomposes a unitary matrix into beam splitters and phase shifters.
+    
+    Implements the Clements decomposition algorithm to decompose an N×N unitary
+    matrix into a sequence of elementary beam splitter operations and phase shifts
+    (and their inverses).
+    
+    Parameters
+    ----------
+    U : np.ndarray
+        An N×N unitary matrix to be decomposed (complex entries).
+    project : bool, optional
+        Whether to project intermediate 2×2 matrices onto U(2) and the final diagonal
+        matrix for numerical stability.
+        Default is True.
+    
+    Returns
+    -------
+    list of tuple
+        A list of tuples (m, n, phi, theta) representing the decomposition elements.
+    
+    Raises
+    ------
+    ValueError
+        If the input matrix is not square.
     """
     N = U.shape[0]
     if U.shape[1] != N:
@@ -188,21 +301,54 @@ def clements_scheme(U):
             if d % 2 == 1: # odd diagonal (odd in mathematical notations)
                 (phi, theta) = nullify_column(Ucopy, N-1-k, d-1-k, d-1-k, d-k)
                 Tmn_inv = inverse_T(d-1-k, d-k, phi, theta, N)
-                #Ucopy = Ucopy @ project_U2(Tmn_inv)
-                Ucopy = Ucopy @ Tmn_inv
-                left_decomposition.append((d-1-k, d-k, phi, theta))
+                if project:
+                    Ucopy = Ucopy @ project_U2(Tmn_inv)
+                else:
+                    Ucopy = Ucopy @ Tmn_inv
+                right_decomposition.append((d-1-k, d-k, phi, theta))
             else: # even diagonal (even in mathematical notations)
                 (phi, theta) = nullify_row(Ucopy, N-d+k, k, N-d+k-1, N-d+k)
                 Tmn = T(N-d+k-1, N-d+k, phi, theta, N)
-                #Ucopy = project_U2(Tmn) @ Ucopy
-                Ucopy = Tmn @ Ucopy
-                right_decomposition.append((N-d+k-1, N-d+k, phi, theta))
-    decomposition = right_decomposition[::-1] + left_decomposition
-    print(np.round(Ucopy, 5))
-    print(decomposition)
-    return decomposition
+                if project:
+                    Ucopy = project_U2(Tmn) @ Ucopy
+                else:
+                    Ucopy = Tmn @ Ucopy
+                left_decomposition.append((N-d+k-1, N-d+k, phi, theta))
+    decomposition = (left_decomposition[::-1], right_decomposition)
+    # print(np.round(Ucopy, 5))
+    # print(decomposition)
+    return (decomposition, project_D(Ucopy)) if project else (decomposition, Ucopy)
 
-clements_scheme(random_unitary(4))
+def clements_scheme(D, decomposition, project=True):
+    """Modifies the celements decomposition in order to get rid of the inverses.
+    
+    Uses a trick to move all the inverses to the right of the decomposition, c.f. clements et al.
+    
+    Parameters
+    ----------
+    D : np.ndarray
+        An N×N diagonal unitary matrix, represents U after decomposition.
+    decomposition : list of tuple
+        A list of tuples (m, n, phi, theta) representing the decomposition elements.
+    project : bool, optional
+        Whether to project intermediate 2×2 matrices onto U(2) and the final diagonal
+        matrix for numerical stability.
+        Default is True.
+    
+    Returns
+    -------
+    list of tuple
+        A list of tuples (m, n, phi, theta) representing the final decomposition elements.
+    
+    Raises
+    ------
+    ValueError
+        If the input matrix is not square.
+    """
+    pass
+    
+
+# clements_decomposition(random_unitary(4))
 # Ur = random_unitary(4)
 # phi, theta = nullify_row(Ur, 1, 0, 1, 2)
 # print(np.round(project_U2(T(1, 2, phi, theta, 4)@Ur), 10))
