@@ -30,6 +30,26 @@ class TestRandUnitary(unittest.TestCase):
         identity = np.eye(n)
         self.assertTrue(np.allclose(U.conj().T @ U, identity))
 
+class TestWrapAngleFunction(unittest.TestCase):
+    def test_wrap_angle_within_bounds(self):
+        angles = [0, np.pi/2, np.pi, -np.pi/2, -np.pi]
+        for angle in angles:
+            wrapped = clements_scheme.wrap_angle(angle)
+            self.assertTrue(-np.pi <= wrapped <= np.pi)
+            self.assertAlmostEqual(wrapped, angle)
+    
+    def test_wrap_angle_exceeding_bounds(self):
+        test_cases = [
+            (4 * np.pi, 0),
+            (-4 * np.pi, 0),
+            (5 * np.pi / 2, np.pi / 2),
+            (-5 * np.pi / 2, -np.pi / 2)
+        ]
+        for angle, expected in test_cases:
+            wrapped = clements_scheme.wrap_angle(angle)
+            self.assertTrue(-np.pi <= wrapped <= np.pi)
+            self.assertAlmostEqual(wrapped, expected)
+
 class TestNullifyFunctions(unittest.TestCase):
     def test_nullify_row(self): # tests the row nullification of the lower triangle
         U = rnd_unitary.random_unitary(4)
@@ -562,7 +582,6 @@ class TestFullClements(unittest.TestCase):
                 self.assertEqual(m + 1, n)
                 self.assertEqual(m, j)
             bs_index += i
-
 
 if __name__ == '__main__':
     unittest.main()

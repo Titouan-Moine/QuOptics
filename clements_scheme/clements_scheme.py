@@ -29,6 +29,21 @@ universal multiport interferometers." Optica, 3(12), 1460-1465.
 import numpy as np
 from rnd_unitary import random_unitary
 
+def wrap_angle(angle):
+    """Wraps an angle to the interval [-pi, pi].
+    
+    Parameters
+    ----------
+    angle : float
+        The angle in radians to be wrapped.
+    
+    Returns
+    -------
+    float
+        The wrapped angle in the interval [-pi, pi].
+    """
+    return np.angle(np.exp(1j * angle))
+
 def T(m, n, phi, theta, N):
     """Constructs a beam splitter matrix acting on modes m and n.
     
@@ -414,6 +429,8 @@ def full_clements(U, project=True):
     left_decomposition, right_decomposition = decomposition
     inverted_left, Dfinal = clements_invert_left(D, left_decomposition, project=project)
     full_decomposition = inverted_left + right_decomposition
+    for i, (m, n, phi, theta) in enumerate(full_decomposition):
+        full_decomposition[i] = (m, n, wrap_angle(phi), wrap_angle(theta))
     return full_decomposition, Dfinal
 
 
