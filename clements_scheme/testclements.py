@@ -540,6 +540,28 @@ class TestFullClements(unittest.TestCase):
         
         # Check that reconstructed U is close to original U
         self.assertTrue(np.allclose(U_reconstructed, U, atol=1e-10))
+    
+    def test_full_clements_bs_order(self):
+        """Test that full_clements returns beam splitters in correct order."""
+        U = rnd_unitary.random_unitary(3)
+        full_decomp, D_final = clements_scheme.full_clements(U, project=True)
+        
+        # Check that beam splitters are ordered correctly
+        N = U.shape[0]
+        bs_index = 0
+        for i in range(2, N, 2):
+            for j in range(i):
+                m, n, _, _ = full_decomp[bs_index + j]
+                self.assertEqual(m + 1, n)
+                self.assertEqual(n, N - i + j)
+            bs_index += i
+        start = N-1 if N % 2 == 0 else N-2
+        for i in range(start, 0, -2):
+            for j in range(i):
+                m, n, _, _ = full_decomp[bs_index + j]
+                self.assertEqual(m + 1, n)
+                self.assertEqual(m, j)
+            bs_index += i
 
 
 if __name__ == '__main__':

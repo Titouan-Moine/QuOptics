@@ -392,8 +392,12 @@ def full_clements(U, project=True):
     
     Returns
     -------
-    list of tuple
-        A list of tuples (m, n, phi, theta) representing the full decomposition elements.
+    tuple of (list of tuple, np.ndarray)
+        Contains, in order:
+        list of tuple
+            A list of tuples (m, n, phi, theta) representing the full decomposition elements.
+        np.ndarray
+            The resulting diagonal unitary matrix D after decomposition.
     
     Raises
     ------
