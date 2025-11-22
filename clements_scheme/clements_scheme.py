@@ -16,7 +16,9 @@ inverse_T : Create the inverse of a beam splitter matrix
 project_U2 : Project a 2×2 matrix onto U(2)
 nullify_row : Calculate parameters to nullify a matrix row element
 nullify_column : Calculate parameters to nullify a matrix column element
-clements_scheme : Main function to decompose a unitary matrix
+clements_decomposition : First (preliminary) decomposition of a unitary matrix
+clements_invert_left : Modify left decomposition to eliminate inverses
+full_clements : Full Clements decomposition of a unitary matrix
 
 References
 ----------
@@ -276,8 +278,17 @@ def clements_decomposition(U, project=True):
     
     Returns
     -------
-    list of tuple
-        A list of tuples (m, n, phi, theta) representing the decomposition elements.
+    tuple of ((list of tuple, list of tuple), np.ndarray)
+        Contains, in order:
+        list of tuple
+            A list of tuples (m, n, phi, theta) representing the left decomposition elements,
+            in the order in which they are multiplied to D (the resulting diagonal matrix)
+            in order to give back U.
+        list of tuple
+            A list of tuples (m, n, phi, theta) representing the right decomposition elements,
+            in the same order as the left_decomposition.
+        np.ndarray
+            The resulting diagonal unitary matrix D after decomposition.
     
     Raises
     ------
@@ -314,7 +325,7 @@ def clements_decomposition(U, project=True):
                 else:
                     Ucopy = Tmn @ Ucopy
                 left_decomposition.append((N-d+k-1, N-d+k, phi, theta))
-    decomposition = (left_decomposition, right_decomposition)
+    decomposition = (left_decomposition[::-1], right_decomposition[::-1])
     # print(np.round(Ucopy, 5))
     # print(decomposition)
     return (decomposition, project_D(Ucopy)) if project else (decomposition, Ucopy)
@@ -338,7 +349,10 @@ def clements_invert_left(D, left_decomposition, project=True):
     Returns
     -------
     list of tuple
-        A list of tuples (m, n, phi, theta) representing the final decomposition elements.
+        A list of tuples (m, n, phi, theta) representing the final decomposition elements,
+        in the order in which they are multiplied to D'.
+    np.ndarray
+        The resulting diagonal unitary matrix D' after modification.
     
     Raises
     ------
@@ -349,15 +363,15 @@ def clements_invert_left(D, left_decomposition, project=True):
     N = D.shape[0]
     if project:
         Dprime = project_D(D)
-    
+
     inverse_ldecomp = []
-    for i, (m, n, phi, theta) in enumerate(left_decomposition):
-        dm = - np.exp(1j * phi) * Dprime[n, n]
-        phi = np.pi + np.angle(Dprime[m, m]) - np.angle(Dprime[n, n])
+    for m, n, phi, theta in left_decomposition:
+        dm = - np.exp(- 1j * phi) * Dprime[n, n]
+        phi_prime = np.pi + np.angle(Dprime[m, m]) - np.angle(Dprime[n, n])
         Dprime[m, m] = dm
         if project:
             Dprime = project_D(Dprime)
-        inverse_ldecomp.append((m, n, phi, theta))
+        inverse_ldecomp.append((m, n, phi_prime, theta))
     return inverse_ldecomp[::-1], Dprime
 
 def full_clements(U, project=True):

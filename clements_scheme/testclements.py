@@ -254,6 +254,29 @@ class TestClementsDecomposition(unittest.TestCase):
             self.assertIsInstance(elem[2], (float, np.floating))
             self.assertIsInstance(elem[3], (float, np.floating))
     
+    def test_clements_decomposition_correctness(self):
+        """Test that clements_decomposition correctly decomposes the unitary matrix."""
+        U = rnd_unitary.random_unitary(4)
+        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        left_decomp, right_decomp = decomposition
+        
+        # Reconstruct U from the decomposition
+        N = U.shape[0]
+        U_reconstructed = D.copy()
+        
+        # Apply right decomposition
+        for m, n, phi, theta in right_decomp:
+            Tmn = clements_scheme.T(m, n, phi, theta, N)
+            U_reconstructed = U_reconstructed @ Tmn
+        
+        # Apply left decomposition
+        for m, n, phi, theta in left_decomp:
+            invTmn = clements_scheme.inverse_T(m, n, phi, theta, N)
+            U_reconstructed = invTmn @ U_reconstructed
+        
+        # Check that reconstructed U is close to original U
+        self.assertTrue(np.allclose(U_reconstructed, U, atol=1e-10))
+    
     def test_clements_decomposition_different_sizes(self):
         """Test clements_decomposition works for different matrix sizes."""
         for n in [2, 3, 4, 5]:
@@ -330,36 +353,54 @@ class TestClementsInvertLeft(unittest.TestCase):
         U = rnd_unitary.random_unitary(4)
         decomposition, D = clements_scheme.clements_decomposition(U, project=True)
         left_decomp, right_decomp = decomposition
-        
+
         inverted_left, D_final = clements_scheme.clements_invert_left(D, left_decomp, project=True)
-        
+
         # Result should be diagonal and unitary
         off_diag_mask = ~np.eye(4, dtype=bool)
         self.assertTrue(np.allclose(D_final[off_diag_mask], 0, atol=1e-10))
         self.assertTrue(np.allclose(D_final.conj().T @ D_final, np.eye(4)))
-    
+
     def test_clements_invert_left_without_projection(self):
         """Test clements_invert_left with projection disabled."""
         U = rnd_unitary.random_unitary(3)
         decomposition, D = clements_scheme.clements_decomposition(U, project=True)
         left_decomp, right_decomp = decomposition
-        
+
         inverted_left, D_final = clements_scheme.clements_invert_left(D, left_decomp, project=False)
-        
+
         # Even without projection, D_final should be close to diagonal
         off_diag_mask = ~np.eye(3, dtype=bool)
         self.assertTrue(np.allclose(D_final[off_diag_mask], 0, atol=1e-8))
-    
+
     def test_clements_invert_left_preserves_dimension(self):
         """Test that clements_invert_left preserves matrix dimension."""
         for n in [2, 3, 4, 5]:
             U = rnd_unitary.random_unitary(n)
             decomposition, D = clements_scheme.clements_decomposition(U, project=True)
             left_decomp, right_decomp = decomposition
-            
+
             inverted_left, D_final = clements_scheme.clements_invert_left(D, left_decomp, project=True)
-            
+
             self.assertEqual(D_final.shape, (n, n))
+
+    def test_clemets_invert_left_correctness(self):
+        """test that clements_invert_left correctly inverts the left decomposition."""
+        U = rnd_unitary.random_unitary(4)
+        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        left_decomp, right_decomp = decomposition
+        inverted_left, D_prime = clements_scheme.clements_invert_left(D, left_decomp, project=True)
+        N = U.shape[0]
+
+        for m, n, phi, theta in inverted_left:
+            Tmn = clements_scheme.T(m, n, phi, theta, N)
+            D_prime = D_prime @ Tmn
+
+        for m, n, phi, theta in left_decomp:
+            invTmn = clements_scheme.inverse_T(m, n, phi, theta, N)
+            D = invTmn @ D
+
+        self.assertTrue(np.allclose(D_prime, D, atol=1e-10))
 
 class TestFullClements(unittest.TestCase):
     def test_full_clements_output_structure(self):
@@ -455,8 +496,8 @@ class TestFullClements(unittest.TestCase):
         self.assertEqual(len(full_decomp1), len(full_decomp2))
         self.assertTrue(np.allclose(D_final1, D_final2))
     
-    def test_full_clements_no_inverses(self):
-        """Test that full_clements decomposition contains only forward operations."""
+    def test_full_clements_valid_operations(self):
+        """Test that full_clements decomposition contains only valid operations."""
         U = rnd_unitary.random_unitary(4)
         full_decomp, D_final = clements_scheme.full_clements(U, project=True)
         
@@ -483,6 +524,22 @@ class TestFullClements(unittest.TestCase):
             
             # Check unitarity
             self.assertTrue(np.allclose(D_final.conj().T @ D_final, np.eye(n)))
+    
+    def test_full_clements_correctness(self):
+        """Test that full_clements correctly decomposes the unitary matrix."""
+        U = rnd_unitary.random_unitary(4)
+        full_decomp, D_final = clements_scheme.full_clements(U, project=True)
+        N = U.shape[0]
+        
+        # Reconstruct U from the decomposition
+        U_reconstructed = D_final.copy()
+        
+        for m, n, phi, theta in full_decomp:
+            Tmn = clements_scheme.T(m, n, phi, theta, N)
+            U_reconstructed = U_reconstructed @ Tmn
+        
+        # Check that reconstructed U is close to original U
+        self.assertTrue(np.allclose(U_reconstructed, U, atol=1e-10))
 
 
 if __name__ == '__main__':

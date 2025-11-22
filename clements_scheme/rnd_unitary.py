@@ -9,7 +9,7 @@ import numpy as np
 
 
 def random_unitary(n):
-    """Generate a random n×n unitary matrix using QR decomposition.
+    """Generate a random n×n unitary matrix using QR decomposition (Mezzadri method).
     
     Parameters
     ----------
