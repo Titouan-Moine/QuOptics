@@ -27,7 +27,7 @@ universal multiport interferometers." Optica, 3(12), 1460-1465.
 """
 
 import numpy as np
-from rnd_unitary import random_unitary
+#from rnd_unitary import random_unitary
 
 def wrap_angle(angle):
     """Wraps an angle to the interval [-pi, pi].

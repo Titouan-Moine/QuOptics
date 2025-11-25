@@ -66,7 +66,7 @@ def draw_clements_scheme(D, decomposition, N=None):
         clements_graph.add_trace(go.Scatter(
             x = [N+1.5], y = [N - i - 1],
             mode='markers',
-            marker_opacity=0,
+            marker_opacity=1,
             hovertext=[f"Phase shifter on mode {i+1}<br>φ={np.angle(D[i,i]):.3f}" ],
             hoverinfo='text'
         ))
@@ -89,7 +89,7 @@ def draw_clements_scheme(D, decomposition, N=None):
                                 tickvals=list(range(N)))
     clements_graph.show()
 
-U = random_unitary(6)
+U = random_unitary(10)
 decomposition, D = clements_scheme.full_clements(U, project=True)
 #print(decomposition)
 draw_clements_scheme(U, decomposition)
