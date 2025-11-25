@@ -11,10 +11,11 @@ that can be used to implement the unitary transformation in a photonic or
 linear optical system.
 
 Key functions:
-    - clements_scheme: Decompose a unitary matrix into beam splitters and phase shifters
+    - full_clements: Decompose a unitary matrix into beam splitters and phase shifters
     - T: Construct a beam splitter matrix
     - inverse_T: Construct the inverse of a beam splitter matrix
     - project_U2: Project a 2×2 matrix onto the unitary group U(2)
-    - nullify_row: Calculate beam splitter parameters to nullify a matrix row
-    - nullify_column: Calculate beam splitter parameters to nullify a matrix column
+    - nullify_row: Calculate beam splitter parameters to nullify an element of a row
+    - nullify_column: Calculate beam splitter parameters to nullify an element of a column
+    - clements_display: Visualize the Clements scheme using Plotly
 """
