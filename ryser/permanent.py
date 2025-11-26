@@ -165,7 +165,7 @@ def ryser_hyperrect(U, vecn, vecm, n=None):
     perm = 0
 
     for c in product(*(range(vecm[j]+1) for j in nzm_index)):
-        binom_prod = np.prod([binom_coef[(nzm_index[j], c[j])]
+        binom_prod = np.prod([binom_coef[(j, c[j])]
                                for j in range(len(nzm))])
         prod = np.prod([pow(np.sum([c[j]*U[i, nzm_index[j]]
                                     for j in range(len(nzm))]), nzn[i]) for i in range(len(nzn))])
@@ -266,14 +266,14 @@ def ryser_hyperrect_gray(U, vecn, vecm, n=None):
     nzm_index = np.arange(N)[nzm_mask]
     nzn = vecn[nzn_mask]
     nzm = vecm[nzm_mask]
-    
+
     sign = (-1)**n
     prev_c = np.zeros(len(nzm), dtype=int)
     binom_prod = 1
     row_sum = np.zeros(len(nzn), dtype=complex)
     prod = 1
     perm = 0.0 + 0.0j
-    
+
     first = True
     for c in gray_mixed(nzm):
         if first:
@@ -282,10 +282,10 @@ def ryser_hyperrect_gray(U, vecn, vecm, n=None):
             diff_idx, diff_sign = index_and_sign(c, prev_c)
             changed_c = c[diff_idx]
             if diff_sign > 0:
-                binom_prod = binom_prod * nzm[diff_idx] - changed_c + 1 / changed_c
+                binom_prod = binom_prod * (nzm[diff_idx] - changed_c + 1) / changed_c
                 row_sum += U[nzn_index, nzm_index[diff_idx]]
             else:
-                binom_prod = binom_prod * changed_c + 1 / (nzm[diff_idx] - changed_c)
+                binom_prod = binom_prod * (changed_c + 1) / (nzm[diff_idx] - changed_c)
                 row_sum -= U[nzn_index, nzm_index[diff_idx]]
 
             prod = np.prod([pow(row_sum[i], nzn[i]) for i in range(len(nzn))])
@@ -294,11 +294,47 @@ def ryser_hyperrect_gray(U, vecn, vecm, n=None):
             prev_c = c
     return perm
 
+def repeat_matrix(U, vecn, vecm):
+    """Construct the repeating sub-matrix from base matrix U and multiplicity vectors.
 
-U = random_unitary(4)
-vecn = np.array([1,1,1,1])
-vecm = np.array([1,1,1,1])
-print("Permanent (Ryser) :", ryser(U))
-print("Permanent (Ryser Gray) :", ryser_gray(U))
-print("Permanent (Ryser Hyperrect) :", ryser_hyperrect(U, vecn, vecm))
-print("Permanent (Ryser Hyperrect Gray) :", ryser_hyperrect_gray(U, vecn, vecm))
+    Parameters
+    ----------
+    U : np.ndarray
+        The base matrix of shape (N, N).
+    vecn : np.ndarray
+        An array containing the row multiplicities.
+    vecm : np.ndarray
+        An array containing the column multiplicities.
+    
+    Returns
+    -------
+    np.ndarray
+        The constructed repeating sub-matrix.
+    """
+    rows = []
+    for i in range(U.shape[0]):
+        rows.extend([U[i, :]] * vecn[i])
+    repeated_U = np.array(rows)
+
+    cols = []
+    for j in range(U.shape[1]):
+        cols.extend([repeated_U[:, j]] * vecm[j])
+    repeated_U = np.array(cols).T
+
+    return repeated_U
+
+
+# U = random_unitary(4)
+# vecn = np.array([1,3,1,1])
+# vecm = np.array([1,2,1,2])
+# # vecn = np.array([1,3,1,1])
+# # vecm = np.array([1,2,2,1])
+# # U = np.array([[1, 0, 0, 0],
+# #               [1, 0, 0, 0],
+# #               [1, 0, 0, 0],
+# #               [1, 0, 0, 0]])
+# print(repeat_matrix(U, vecn, vecm))
+# print("Permanent (Ryser) :", ryser(repeat_matrix(U, vecn, vecm)))
+# print("Permanent (Ryser Gray) :", ryser_gray(repeat_matrix(U, vecn, vecm)))
+# print("Permanent (Ryser Hyperrect) :", ryser_hyperrect(U, vecn, vecm))
+# print("Permanent (Ryser Hyperrect Gray) :", ryser_hyperrect_gray(U, vecn, vecm))
