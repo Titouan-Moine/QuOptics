@@ -288,7 +288,8 @@ def ryser_hyperrect_gray(U, vecn, vecm, n=None):
                 binom_prod = binom_prod * (changed_c + 1) / (nzm[diff_idx] - changed_c)
                 row_sum -= U[nzn_index, nzm_index[diff_idx]]
 
-            prod = np.prod([pow(row_sum[i], nzn[i]) for i in range(len(nzn))])
+            #prod = np.prod([pow(row_sum[i], nzn[i]) for i in range(len(nzn))])
+            prod = np.prod(np.power(row_sum, nzn))
             sign = - sign
             perm += sign * binom_prod * prod
             prev_c = c
@@ -327,12 +328,12 @@ def repeat_matrix(U, vecn, vecm):
 # U = random_unitary(4)
 # vecn = np.array([1,3,1,1])
 # vecm = np.array([1,2,1,2])
-# # vecn = np.array([1,3,1,1])
-# # vecm = np.array([1,2,2,1])
-# # U = np.array([[1, 0, 0, 0],
-# #               [1, 0, 0, 0],
-# #               [1, 0, 0, 0],
-# #               [1, 0, 0, 0]])
+# vecn = np.array([1,3,1,1])
+# vecm = np.array([1,2,2,1])
+# U = np.array([[1, 0, 0, 0],
+#               [1, 0, 0, 0],
+#               [1, 0, 0, 0],
+#               [1, 0, 0, 0]])
 # print(repeat_matrix(U, vecn, vecm))
 # print("Permanent (Ryser) :", ryser(repeat_matrix(U, vecn, vecm)))
 # print("Permanent (Ryser Gray) :", ryser_gray(repeat_matrix(U, vecn, vecm)))
