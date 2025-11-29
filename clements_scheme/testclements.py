@@ -11,22 +11,42 @@ All functions are tested to ensure:
 - Parameter validation and error handling
 - Numerical stability and precision
 """
-
+import sys
+import os
 import unittest
 import numpy as np
-import clements_scheme
-import rnd_unitary
+import importlib.util
 
+# Add parent directory to path to enable imports from infoq package
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from rnd_module import random_unitary
+
+# Import clements_scheme.py module directly
+spec = importlib.util.spec_from_file_location("clements_scheme_module", os.path.join(os.path.dirname(__file__), "clements_scheme.py"))
+cs_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(cs_module)
+
+# Create aliases for all functions
+wrap_angle = cs_module.wrap_angle
+T = cs_module.T
+inverse_T = cs_module.inverse_T
+project_U2 = cs_module.project_U2
+project_D = cs_module.project_D
+nullify_row = cs_module.nullify_row
+nullify_column = cs_module.nullify_column
+clements_decomposition = cs_module.clements_decomposition
+clements_invert_left = cs_module.clements_invert_left
+full_clements = cs_module.full_clements
 
 class TestRandUnitary(unittest.TestCase):
     def test_random_unitary_dimensions(self):
         n = 5
-        U = rnd_unitary.random_unitary(n)
+        U = random_unitary(n)
         self.assertEqual(U.shape, (n, n))
         
     def test_random_unitary_unitarity(self):
         n = 4
-        U = rnd_unitary.random_unitary(n)
+        U = random_unitary(n)
         identity = np.eye(n)
         self.assertTrue(np.allclose(U.conj().T @ U, identity))
 
@@ -34,7 +54,7 @@ class TestWrapAngleFunction(unittest.TestCase):
     def test_wrap_angle_within_bounds(self):
         angles = [0, np.pi/2, np.pi, -np.pi/2, -np.pi]
         for angle in angles:
-            wrapped = clements_scheme.wrap_angle(angle)
+            wrapped = wrap_angle(angle)
             self.assertTrue(-np.pi <= wrapped <= np.pi)
             self.assertAlmostEqual(wrapped, angle)
     
@@ -46,29 +66,29 @@ class TestWrapAngleFunction(unittest.TestCase):
             (-5 * np.pi / 2, -np.pi / 2)
         ]
         for angle, expected in test_cases:
-            wrapped = clements_scheme.wrap_angle(angle)
+            wrapped = wrap_angle(angle)
             self.assertTrue(-np.pi <= wrapped <= np.pi)
             self.assertAlmostEqual(wrapped, expected)
 
 class TestNullifyFunctions(unittest.TestCase):
     def test_nullify_row(self): # tests the row nullification of the lower triangle
-        U = rnd_unitary.random_unitary(4)
+        U = random_unitary(4)
         flag = True
         for i in range(1, 4):
             for j in range(i-1, 3):
-                phi, theta = clements_scheme.nullify_row(U, i, j, i-1, i)
-                Tmn = clements_scheme.T(i-1, i, phi, theta, 4)
+                phi, theta = nullify_row(U, i, j, i-1, i)
+                Tmn = T(i-1, i, phi, theta, 4)
                 U_new = Tmn @ U
                 flag = flag and np.isclose(U_new[i,j], 0.0)
         self.assertTrue(flag)
         
     def test_nullify_column(self): # tests the column nullification of the lower triangle
-        U = rnd_unitary.random_unitary(4)
+        U = random_unitary(4)
         flag = True
         for i in range(1, 4):
             for j in range(i-1, 3):
-                phi, theta = clements_scheme.nullify_column(U, i, j, j, j+1)
-                invTmn = clements_scheme.inverse_T(j, j+1, phi, theta, 4)
+                phi, theta = nullify_column(U, i, j, j, j+1)
+                invTmn = inverse_T(j, j+1, phi, theta, 4)
                 U_new = U @ invTmn
                 flag = flag and np.isclose(U_new[i,j], 0.0)
         self.assertTrue(flag)
@@ -78,7 +98,7 @@ class TestTmnMatrices(unittest.TestCase):
         N = 4
         m, n = 1, 2
         phi, theta = np.pi/4, np.pi/6
-        T_matrix = clements_scheme.T(m, n, phi, theta, N)
+        T_matrix = T(m, n, phi, theta, N)
         
         # Check unitarity
         identity = np.eye(N)
@@ -88,8 +108,8 @@ class TestTmnMatrices(unittest.TestCase):
         N = 4
         m, n = 0, 3
         phi, theta = np.pi/3, np.pi/8
-        T_matrix = clements_scheme.T(m, n, phi, theta, N)
-        T_inv_matrix = clements_scheme.inverse_T(m, n, phi, theta, N)
+        T_matrix = T(m, n, phi, theta, N)
+        T_inv_matrix = inverse_T(m, n, phi, theta, N)
         
         # Check that T * T_inv = I
         identity = np.eye(N)
@@ -98,22 +118,22 @@ class TestTmnMatrices(unittest.TestCase):
     def test_invalid_indices_T(self):
         N = 3
         with self.assertRaises(ValueError):
-            clements_scheme.T(3, 1, 0, 0, N)
+            T(3, 1, 0, 0, N)
         with self.assertRaises(ValueError):
-            clements_scheme.T(1, 3, 0, 0, N)
+            T(1, 3, 0, 0, N)
             
     def test_invalid_indices_inverse_T(self):
         N = 3
         with self.assertRaises(ValueError):
-            clements_scheme.inverse_T(3, 1, 0, 0, N)
+            inverse_T(3, 1, 0, 0, N)
         with self.assertRaises(ValueError):
-            clements_scheme.inverse_T(1, 3, 0, 0, N)
+            inverse_T(1, 3, 0, 0, N)
 
 class TestProjectU2(unittest.TestCase):
     def test_project_U2_unitarity(self):
         """Test that project_U2 returns a unitary matrix."""
         A = np.array([[1+0.1j, 0.2], [0.3, 0.9+0.1j]], dtype=complex)
-        U = clements_scheme.project_U2(A)
+        U = project_U2(A)
         
         # Check unitarity: U^† @ U = I
         identity = np.eye(2)
@@ -121,15 +141,15 @@ class TestProjectU2(unittest.TestCase):
     
     def test_project_U2_dimensions(self):
         """Test that project_U2 preserves matrix dimensions."""
-        A = rnd_unitary.random_unitary(2)
-        U = clements_scheme.project_U2(A)
+        A = random_unitary(2)
+        U = project_U2(A)
         
         self.assertEqual(U.shape, (2, 2))
     
     def test_project_U2_on_unitary(self):
         """Test that project_U2 of a unitary matrix is close to the original."""
-        A = rnd_unitary.random_unitary(2)
-        U = clements_scheme.project_U2(A)
+        A = random_unitary(2)
+        U = project_U2(A)
         
         # Projecting an already unitary matrix should give a unitary matrix close to it
         self.assertTrue(np.allclose(U.conj().T @ U, np.eye(2)))
@@ -137,7 +157,7 @@ class TestProjectU2(unittest.TestCase):
     def test_project_U2_non_unitary(self):
         """Test that project_U2 of a non-unitary matrix is unitary."""
         A = np.array([[2, 0], [0, 0.5]], dtype=complex)
-        U = clements_scheme.project_U2(A)
+        U = project_U2(A)
         
         # Result should be unitary
         identity = np.eye(2)
@@ -149,7 +169,7 @@ class TestProjectD(unittest.TestCase):
         """Test that project_D returns a unitary diagonal matrix."""
         N = 4
         D = np.diag([1+0.1j, 0.9+0.05j, 1.1-0.1j, 0.95])
-        D_proj = clements_scheme.project_D(D)
+        D_proj = project_D(D)
         
         # Check that result is diagonal
         off_diag_mask = ~np.eye(N, dtype=bool)
@@ -165,7 +185,7 @@ class TestProjectD(unittest.TestCase):
         phases = np.array([0, np.pi/4, np.pi/2])
         magnitudes = np.array([2, 3, 0.5])
         D = np.diag([magnitudes[i] * np.exp(1j * phases[i]) for i in range(N)])
-        D_proj = clements_scheme.project_D(D)
+        D_proj = project_D(D)
         
         # Check that diagonal elements have magnitude 1
         for i in range(N):
@@ -180,7 +200,7 @@ class TestProjectD(unittest.TestCase):
         N = 4
         phases = np.random.rand(N) * 2 * np.pi
         D = np.diag([np.exp(1j * p) for p in phases])
-        D_proj = clements_scheme.project_D(D)
+        D_proj = project_D(D)
         
         self.assertTrue(np.allclose(D, D_proj))
     
@@ -189,20 +209,20 @@ class TestProjectD(unittest.TestCase):
         D = np.array([[1, 2], [3, 4], [5, 6]], dtype=complex)
         
         with self.assertRaises(ValueError):
-            clements_scheme.project_D(D)
+            project_D(D)
     
     def test_project_D_non_diagonal(self):
         """Test that project_D raises error for non-diagonal matrices."""
         D = np.array([[1, 0.1], [0, 2]], dtype=complex)
         
         with self.assertRaises(ValueError):
-            clements_scheme.project_D(D)
+            project_D(D)
 
 class TestClementsDecomposition(unittest.TestCase):
     def test_clements_decomposition_dimensions(self):
         """Test that clements_decomposition returns correct structure."""
-        U = rnd_unitary.random_unitary(4)
-        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        U = random_unitary(4)
+        decomposition, D = clements_decomposition(U, project=True)
         
         # Check structure
         self.assertIsInstance(decomposition, tuple)
@@ -215,12 +235,12 @@ class TestClementsDecomposition(unittest.TestCase):
         U = U = np.random.rand(3, 4) + 1j * np.random.rand(3, 4)
         
         with self.assertRaises(ValueError):
-            clements_scheme.clements_decomposition(U)
+            clements_decomposition(U)
     
     def test_clements_decomposition_diagonal_result(self):
         """Test that clements_decomposition returns a diagonal matrix D."""
-        U = rnd_unitary.random_unitary(3)
-        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        U = random_unitary(3)
+        decomposition, D = clements_decomposition(U, project=True)
         
         # D should be diagonal
         off_diag_mask = ~np.eye(3, dtype=bool)
@@ -228,8 +248,8 @@ class TestClementsDecomposition(unittest.TestCase):
     
     def test_clements_decomposition_unitarity(self):
         """Test that the decomposition result is unitary."""
-        U = rnd_unitary.random_unitary(4)
-        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        U = random_unitary(4)
+        decomposition, D = clements_decomposition(U, project=True)
         
         # D should be unitary (diagonal unitary)
         identity = np.eye(4)
@@ -237,16 +257,16 @@ class TestClementsDecomposition(unittest.TestCase):
     
     def test_clements_decomposition_with_projection(self):
         """Test clements_decomposition with projection enabled."""
-        U = rnd_unitary.random_unitary(3)
-        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        U = random_unitary(3)
+        decomposition, D = clements_decomposition(U, project=True)
         
         # Result should be diagonal and unitary
         self.assertTrue(np.allclose(D.conj().T @ D, np.eye(3)))
     
     def test_clements_decomposition_without_projection(self):
         """Test clements_decomposition with projection disabled."""
-        U = rnd_unitary.random_unitary(3)
-        decomposition, D = clements_scheme.clements_decomposition(U, project=False)
+        U = random_unitary(3)
+        decomposition, D = clements_decomposition(U, project=False)
         
         # Even without projection, D should be close to diagonal
         off_diag_mask = ~np.eye(3, dtype=bool)
@@ -254,8 +274,8 @@ class TestClementsDecomposition(unittest.TestCase):
     
     def test_clements_decomposition_tuple_format(self):
         """Test that decomposition tuples have correct format."""
-        U = rnd_unitary.random_unitary(3)
-        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        U = random_unitary(3)
+        decomposition, D = clements_decomposition(U, project=True)
         
         left_decomp, right_decomp = decomposition
         
@@ -276,8 +296,8 @@ class TestClementsDecomposition(unittest.TestCase):
     
     def test_clements_decomposition_correctness(self):
         """Test that clements_decomposition correctly decomposes the unitary matrix."""
-        U = rnd_unitary.random_unitary(4)
-        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        U = random_unitary(4)
+        decomposition, D = clements_decomposition(U, project=True)
         left_decomp, right_decomp = decomposition
         
         # Reconstruct U from the decomposition
@@ -286,12 +306,12 @@ class TestClementsDecomposition(unittest.TestCase):
         
         # Apply right decomposition
         for m, n, phi, theta in right_decomp:
-            Tmn = clements_scheme.T(m, n, phi, theta, N)
+            Tmn = T(m, n, phi, theta, N)
             U_reconstructed = U_reconstructed @ Tmn
         
         # Apply left decomposition
         for m, n, phi, theta in left_decomp:
-            invTmn = clements_scheme.inverse_T(m, n, phi, theta, N)
+            invTmn = inverse_T(m, n, phi, theta, N)
             U_reconstructed = invTmn @ U_reconstructed
         
         # Check that reconstructed U is close to original U
@@ -300,8 +320,8 @@ class TestClementsDecomposition(unittest.TestCase):
     def test_clements_decomposition_different_sizes(self):
         """Test clements_decomposition works for different matrix sizes."""
         for n in [2, 3, 4, 5]:
-            U = rnd_unitary.random_unitary(n)
-            decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+            U = random_unitary(n)
+            decomposition, D = clements_decomposition(U, project=True)
             
             # Check diagonal result
             off_diag_mask = ~np.eye(n, dtype=bool)
@@ -313,11 +333,11 @@ class TestClementsDecomposition(unittest.TestCase):
 class TestClementsInvertLeft(unittest.TestCase):
     def test_clements_invert_left_output_structure(self):
         """Test that clements_invert_left returns correct structure."""
-        U = rnd_unitary.random_unitary(4)
-        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        U = random_unitary(4)
+        decomposition, D = clements_decomposition(U, project=True)
         left_decomp, right_decomp = decomposition
         
-        inverted_left, D_final = clements_scheme.clements_invert_left(D, left_decomp, project=True)
+        inverted_left, D_final = clements_invert_left(D, left_decomp, project=True)
         
         # Check that inverted_left is a list
         self.assertIsInstance(inverted_left, list)
@@ -330,11 +350,11 @@ class TestClementsInvertLeft(unittest.TestCase):
     
     def test_clements_invert_left_tuple_format(self):
         """Test that inverted left decomposition tuples have correct format."""
-        U = rnd_unitary.random_unitary(3)
-        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        U = random_unitary(3)
+        decomposition, D = clements_decomposition(U, project=True)
         left_decomp, right_decomp = decomposition
         
-        inverted_left, D_final = clements_scheme.clements_invert_left(D, left_decomp, project=True)
+        inverted_left, D_final = clements_invert_left(D, left_decomp, project=True)
         
         # Check that all elements are tuples of 4 elements
         for elem in inverted_left:
@@ -346,11 +366,11 @@ class TestClementsInvertLeft(unittest.TestCase):
     
     def test_clements_invert_left_diagonal_result(self):
         """Test that D_final from clements_invert_left is diagonal."""
-        U = rnd_unitary.random_unitary(4)
-        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        U = random_unitary(4)
+        decomposition, D = clements_decomposition(U, project=True)
         left_decomp, right_decomp = decomposition
         
-        inverted_left, D_final = clements_scheme.clements_invert_left(D, left_decomp, project=True)
+        inverted_left, D_final = clements_invert_left(D, left_decomp, project=True)
         
         # D_final should be diagonal
         off_diag_mask = ~np.eye(4, dtype=bool)
@@ -358,11 +378,11 @@ class TestClementsInvertLeft(unittest.TestCase):
     
     def test_clements_invert_left_unitarity(self):
         """Test that D_final is unitary."""
-        U = rnd_unitary.random_unitary(3)
-        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        U = random_unitary(3)
+        decomposition, D = clements_decomposition(U, project=True)
         left_decomp, right_decomp = decomposition
         
-        inverted_left, D_final = clements_scheme.clements_invert_left(D, left_decomp, project=True)
+        inverted_left, D_final = clements_invert_left(D, left_decomp, project=True)
         
         # D_final should be unitary
         identity = np.eye(3)
@@ -370,11 +390,11 @@ class TestClementsInvertLeft(unittest.TestCase):
     
     def test_clements_invert_left_with_projection(self):
         """Test clements_invert_left with projection enabled."""
-        U = rnd_unitary.random_unitary(4)
-        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        U = random_unitary(4)
+        decomposition, D = clements_decomposition(U, project=True)
         left_decomp, right_decomp = decomposition
 
-        inverted_left, D_final = clements_scheme.clements_invert_left(D, left_decomp, project=True)
+        inverted_left, D_final = clements_invert_left(D, left_decomp, project=True)
 
         # Result should be diagonal and unitary
         off_diag_mask = ~np.eye(4, dtype=bool)
@@ -383,11 +403,11 @@ class TestClementsInvertLeft(unittest.TestCase):
 
     def test_clements_invert_left_without_projection(self):
         """Test clements_invert_left with projection disabled."""
-        U = rnd_unitary.random_unitary(3)
-        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        U = random_unitary(3)
+        decomposition, D = clements_decomposition(U, project=True)
         left_decomp, right_decomp = decomposition
 
-        inverted_left, D_final = clements_scheme.clements_invert_left(D, left_decomp, project=False)
+        inverted_left, D_final = clements_invert_left(D, left_decomp, project=False)
 
         # Even without projection, D_final should be close to diagonal
         off_diag_mask = ~np.eye(3, dtype=bool)
@@ -396,28 +416,28 @@ class TestClementsInvertLeft(unittest.TestCase):
     def test_clements_invert_left_preserves_dimension(self):
         """Test that clements_invert_left preserves matrix dimension."""
         for n in [2, 3, 4, 5]:
-            U = rnd_unitary.random_unitary(n)
-            decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+            U = random_unitary(n)
+            decomposition, D = clements_decomposition(U, project=True)
             left_decomp, right_decomp = decomposition
 
-            inverted_left, D_final = clements_scheme.clements_invert_left(D, left_decomp, project=True)
+            inverted_left, D_final = clements_invert_left(D, left_decomp, project=True)
 
             self.assertEqual(D_final.shape, (n, n))
 
     def test_clemets_invert_left_correctness(self):
         """test that clements_invert_left correctly inverts the left decomposition."""
-        U = rnd_unitary.random_unitary(4)
-        decomposition, D = clements_scheme.clements_decomposition(U, project=True)
+        U = random_unitary(4)
+        decomposition, D = clements_decomposition(U, project=True)
         left_decomp, right_decomp = decomposition
-        inverted_left, D_prime = clements_scheme.clements_invert_left(D, left_decomp, project=True)
+        inverted_left, D_prime = clements_invert_left(D, left_decomp, project=True)
         N = U.shape[0]
 
         for m, n, phi, theta in inverted_left:
-            Tmn = clements_scheme.T(m, n, phi, theta, N)
+            Tmn = T(m, n, phi, theta, N)
             D_prime = D_prime @ Tmn
 
         for m, n, phi, theta in left_decomp:
-            invTmn = clements_scheme.inverse_T(m, n, phi, theta, N)
+            invTmn = inverse_T(m, n, phi, theta, N)
             D = invTmn @ D
 
         self.assertTrue(np.allclose(D_prime, D, atol=1e-10))
@@ -425,8 +445,8 @@ class TestClementsInvertLeft(unittest.TestCase):
 class TestFullClements(unittest.TestCase):
     def test_full_clements_output_structure(self):
         """Test that full_clements returns correct structure."""
-        U = rnd_unitary.random_unitary(4)
-        full_decomp, D_final = clements_scheme.full_clements(U, project=True)
+        U = random_unitary(4)
+        full_decomp, D_final = full_clements(U, project=True)
         
         # Check that full_decomp is a list
         self.assertIsInstance(full_decomp, list)
@@ -436,8 +456,8 @@ class TestFullClements(unittest.TestCase):
     
     def test_full_clements_tuple_format(self):
         """Test that full_clements tuples have correct format."""
-        U = rnd_unitary.random_unitary(3)
-        full_decomp, D_final = clements_scheme.full_clements(U, project=True)
+        U = random_unitary(3)
+        full_decomp, D_final = full_clements(U, project=True)
         
         # Check that all elements are tuples of 4 elements
         for elem in full_decomp:
@@ -452,19 +472,19 @@ class TestFullClements(unittest.TestCase):
         U = np.random.rand(3, 4) + 1j * np.random.rand(3, 4)
         
         with self.assertRaises(ValueError):
-            clements_scheme.full_clements(U)
+            full_clements(U)
     
     def test_full_clements_non_unitary(self):
         """Test that full_clements raises error for non-unitary matrices."""
         U = np.random.rand(3, 3) + 1j * np.random.rand(3, 3)
         
         with self.assertRaises(ValueError):
-            clements_scheme.full_clements(U)
+            full_clements(U)
     
     def test_full_clements_diagonal_result(self):
         """Test that D_final from full_clements is diagonal."""
-        U = rnd_unitary.random_unitary(4)
-        full_decomp, D_final = clements_scheme.full_clements(U, project=True)
+        U = random_unitary(4)
+        full_decomp, D_final = full_clements(U, project=True)
         
         # D_final should be diagonal
         off_diag_mask = ~np.eye(4, dtype=bool)
@@ -472,8 +492,8 @@ class TestFullClements(unittest.TestCase):
     
     def test_full_clements_unitarity(self):
         """Test that D_final is unitary."""
-        U = rnd_unitary.random_unitary(3)
-        full_decomp, D_final = clements_scheme.full_clements(U, project=True)
+        U = random_unitary(3)
+        full_decomp, D_final = full_clements(U, project=True)
         
         # D_final should be unitary
         identity = np.eye(3)
@@ -481,8 +501,8 @@ class TestFullClements(unittest.TestCase):
     
     def test_full_clements_with_projection(self):
         """Test full_clements with projection enabled."""
-        U = rnd_unitary.random_unitary(4)
-        full_decomp, D_final = clements_scheme.full_clements(U, project=True)
+        U = random_unitary(4)
+        full_decomp, D_final = full_clements(U, project=True)
         
         # Result should be diagonal and unitary
         off_diag_mask = ~np.eye(4, dtype=bool)
@@ -491,8 +511,8 @@ class TestFullClements(unittest.TestCase):
     
     def test_full_clements_without_projection(self):
         """Test full_clements with projection disabled."""
-        U = rnd_unitary.random_unitary(3)
-        full_decomp, D_final = clements_scheme.full_clements(U, project=False)
+        U = random_unitary(3)
+        full_decomp, D_final = full_clements(U, project=False)
         
         # Even without projection, D_final should be close to diagonal
         off_diag_mask = ~np.eye(3, dtype=bool)
@@ -501,16 +521,16 @@ class TestFullClements(unittest.TestCase):
     def test_full_clements_preserves_dimension(self):
         """Test that full_clements preserves matrix dimension."""
         for n in [2, 3, 4, 5]:
-            U = rnd_unitary.random_unitary(n)
-            full_decomp, D_final = clements_scheme.full_clements(U, project=True)
+            U = random_unitary(n)
+            full_decomp, D_final = full_clements(U, project=True)
             
             self.assertEqual(D_final.shape, (n, n))
     
     def test_full_clements_consistency(self):
         """Test that full_clements gives consistent results for the same input."""
-        U = rnd_unitary.random_unitary(3)
-        full_decomp1, D_final1 = clements_scheme.full_clements(U, project=True)
-        full_decomp2, D_final2 = clements_scheme.full_clements(U, project=True)
+        U = random_unitary(3)
+        full_decomp1, D_final1 = full_clements(U, project=True)
+        full_decomp2, D_final2 = full_clements(U, project=True)
         
         # Results should be identical
         self.assertEqual(len(full_decomp1), len(full_decomp2))
@@ -518,8 +538,8 @@ class TestFullClements(unittest.TestCase):
     
     def test_full_clements_valid_operations(self):
         """Test that full_clements decomposition contains only valid operations."""
-        U = rnd_unitary.random_unitary(4)
-        full_decomp, D_final = clements_scheme.full_clements(U, project=True)
+        U = random_unitary(4)
+        full_decomp, D_final = full_clements(U, project=True)
         
         # All beam splitters should have valid indices
         N = U.shape[0]
@@ -535,8 +555,8 @@ class TestFullClements(unittest.TestCase):
     def test_full_clements_different_sizes(self):
         """Test full_clements works for different matrix sizes."""
         for n in [2, 3, 4, 5]:
-            U = rnd_unitary.random_unitary(n)
-            full_decomp, D_final = clements_scheme.full_clements(U, project=True)
+            U = random_unitary(n)
+            full_decomp, D_final = full_clements(U, project=True)
             
             # Check diagonal result
             off_diag_mask = ~np.eye(n, dtype=bool)
@@ -547,15 +567,15 @@ class TestFullClements(unittest.TestCase):
     
     def test_full_clements_correctness(self):
         """Test that full_clements correctly decomposes the unitary matrix."""
-        U = rnd_unitary.random_unitary(4)
-        full_decomp, D_final = clements_scheme.full_clements(U, project=True)
+        U = random_unitary(4)
+        full_decomp, D_final = full_clements(U, project=True)
         N = U.shape[0]
         
         # Reconstruct U from the decomposition
         U_reconstructed = D_final.copy()
         
         for m, n, phi, theta in full_decomp:
-            Tmn = clements_scheme.T(m, n, phi, theta, N)
+            Tmn = T(m, n, phi, theta, N)
             U_reconstructed = U_reconstructed @ Tmn
         
         # Check that reconstructed U is close to original U
@@ -563,8 +583,8 @@ class TestFullClements(unittest.TestCase):
     
     def test_full_clements_bs_order(self):
         """Test that full_clements returns beam splitters in correct order."""
-        U = rnd_unitary.random_unitary(3)
-        full_decomp, D_final = clements_scheme.full_clements(U, project=True)
+        U = random_unitary(3)
+        full_decomp, D_final = full_clements(U, project=True)
         
         # Check that beam splitters are ordered correctly
         N = U.shape[0]

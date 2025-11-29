@@ -19,9 +19,10 @@ import os
 from math import comb
 from itertools import product
 import numpy as np
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(parent_dir)
-from clements_scheme.rnd_unitary import random_unitary
+
+# Add parent directory to path to enable imports from infoq package
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from rnd_module import random_unitary
 
 
 

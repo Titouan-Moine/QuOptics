@@ -26,8 +26,13 @@ Clements, W. R., Renema, J. J., & O'Brien, J. L. (2016). "Optimal design for
 universal multiport interferometers." Optica, 3(12), 1460-1465.
 """
 
+import sys
+import os
 import numpy as np
-#from rnd_unitary import random_unitary
+
+# Add parent directory to path to enable imports from infoq package
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from rnd_module import random_unitary
 
 def wrap_angle(angle):
     """Wraps an angle to the interval [-pi, pi].
