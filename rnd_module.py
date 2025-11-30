@@ -53,7 +53,7 @@ def random_fock_uniform(n, N):
     bars = np.random.choice(np.arange(1, n+N), size=N-1, replace=False)
     bars.sort()
     bars = np.concatenate(([0], bars, [n+N]))
-    print(bars)
+    #print(bars)
     stars = np.diff(bars) - 1
     return stars
 
