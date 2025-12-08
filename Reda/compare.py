@@ -2,7 +2,7 @@ import time
 import numpy as np
 from utils import random_unitary
 from boson_permanent import boson_distribution_permanent
-from boson_polynomial import boson_distribution_polynomial
+from new import boson_distribution_polynomial
 import pandas as pd
 import matplotlib.pyplot as plt
 
