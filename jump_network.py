@@ -71,15 +71,33 @@ def phaseshifter(m, phi, N):
 
 		return T
 
-def create_jump_random_network(n_modes, n_gate, jump_size=1, theta_range=(0, math.pi/2), phi_range=(0, 2*math.pi), bs=True, ps=True, seed=None):
+def add_gate(U, gate, list=False):
+	"""
+	Apply a gate to the unitary U by left multiplication.
+	If list is True U is assumed to be a list of gates and the new gate is appended to the list.
+
+	Arguments:
+	- U: current unitary (n x n numpy.ndarray)
+	- gate: gate to apply (n x n numpy.ndarray)
+	- list: whether U is a list of gates (default False)
+
+	Returns: updated unitary (n x n numpy.ndarray)
+	"""
+	if list:
+		U.append(gate)
+		return U
+	else:
+		return gate @ U
+def create_jump_random_network(n_modes, n_gate, list=False, jump_size=1, theta_range=(0, math.pi/2), phi_range=(0, 2*math.pi), bs=True, ps=True, seed=None):
 	"""
 	Create a random jump network unitary on n_modes modes with n_gate connected at most with a jump_size neighbour mode
 	beamsplitter gates.
 
 	Arguments:
 	- n_modes: number of modes (integer >= 1)
-	- jump_size: maximum distance between modes connected by a beamsplitter gate (integer >= 1)
 	- n_gate: number of beamsplitter gates to apply (integer >= 0)
+	- list: whether to return a list of gates instead of the full unitary (default False)
+	- jump_size: maximum distance between modes connected by a beamsplitter gate (integer >= 1)
 	- theta_range: tuple (min, max) for uniform sampling of theta angles
 	- phi_range: tuple (min, max) for uniform sampling of phi angles
 	- bs: whether to include beamsplitter gates (default True)
@@ -96,7 +114,10 @@ def create_jump_random_network(n_modes, n_gate, jump_size=1, theta_range=(0, mat
 		raise ValueError("n_gate must be >= 0")
 
 	rng = np.random.default_rng(seed)
-	U = np.eye(n_modes, dtype=complex)
+	if list:
+		gates=[]
+	else:
+		U = np.eye(n_modes, dtype=complex)
 
 	for _ in range(n_gate):
 		# randomly select one mode then another mode within jump_size
@@ -111,16 +132,16 @@ def create_jump_random_network(n_modes, n_gate, jump_size=1, theta_range=(0, mat
 			# apply at random a phase shifter or beamsplitter
 			if rng.random() < 0.5:
 				P = phaseshifter(i, phi, n_modes)
-				U = P @ U
+				add_gate(U, P, list=list)
 			else:
 				B = beamsplitter(i, j, phi, theta, n_modes)
-				U = B @ U
+				add_gate(U, B, list=list)
 		elif bs:
 			B = beamsplitter(i, j, phi, theta, n_modes)
-			U = B @ U
+			add_gate(U, B, list=list)
 		elif ps:
 			P = phaseshifter(i, phi, n_modes)
-			U = P @ U
+			add_gate(U, P, list=list)
 	return U
 
 
