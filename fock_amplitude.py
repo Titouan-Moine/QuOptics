@@ -214,6 +214,56 @@ def fock_amplitude_bs(p, q, phi, theta, vecn, vecm):
 
     return amplitude
 
+def fock_amplitude_ps(i, phi, vecn, vecm):
+    """Compute the Fock state amplitude for a phase shifter.
+
+    Parameters
+    ----------
+    i : int
+        The index of the mode the phase shifter acts on.
+    phi : float
+        The phase shift applied to the mode.
+    vecn : np.ndarray
+        An array containing the input Fock state occupation numbers.
+    vecm : np.ndarray
+        An array containing the output Fock state occupation numbers.
+
+    Returns
+    -------
+    complex
+        The amplitude of the transition from input Fock state vecn to output Fock state vecm.
+    """
+    if (vecn != vecm).any():
+        return 0 # no photons can be exchanged in any modes
+
+    return np.exp(1j * vecn[i] * phi)
+
+def fock_amplitude_multi_ps(phi, vecn, vecm):
+    """Compute the Fock state amplitude for a multi-mode phase shifter.
+
+    Parameters
+    ----------
+    phi : np.ndarray
+        An array containing the phase shifts applied to each mode.
+    vecn : np.ndarray
+        An array containing the input Fock state occupation numbers.
+    vecm : np.ndarray
+        An array containing the output Fock state occupation numbers.
+
+    Returns
+    -------
+    complex
+        The amplitude of the transition from input Fock state vecn to output Fock state vecm.
+    """
+    if len(phi) != len(vecn) or len(phi) != len(vecm):
+        raise ValueError("The length of phi must match the length of vecn and vecm.")
+    if (vecn != vecm).any():
+        return 0 # no photons can be exchanged in any modes
+
+    amplitude = np.prod(np.exp(1j * vecn * phi))
+
+    return amplitude
+
 # def fock_amplitude_two_mode_bs_wigner(U, n1, n2, m1, m2):
 #     """Compute the Fock state amplitude for a two-mode beam splitter using Wigner d-matrix.
 
