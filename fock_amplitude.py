@@ -2,6 +2,7 @@
 after passing through a linear optical network.
 """
 import math
+import warnings
 import numpy as np
 from scipy.special import gammaln
 # from sympy.physics.quantum.spin import Rotation
@@ -9,7 +10,42 @@ from ryser.permanent import ryser, ryser_gray, ryser_hyperrect, ryser_hyperrect_
 from rnd_module import random_unitary
 from clements_scheme.clements_scheme import T
 
-def fock_amplitude_ryser(U, vecn, vecm):
+def enumerate_fock(n, N, indexed=True, check_value=True):
+    """Generate all Fock states of N modes with a total of n photons
+    recursively in lexicographic order.
+
+    Parameters
+    ----------
+    n : int
+        The number of photons.
+    N : int
+        The number of modes.
+    indexed : bool, optional
+        If True, return a dictionary mapping each Fock state to its index. Default is True.
+    check_value : bool, optional
+        If True, check that n is non-negative and N is positive. Default is True.
+
+    Returns
+    -------
+    List[np.ndarray]
+        A list of numpy arrays, each representing a Fock state.
+    """
+    if check_value:
+        if n <= 0 or N < 0:
+            raise ValueError("Number of modes must be positive and number of photons must be non-negative.")
+
+    if N == 1:
+        return [np.array([n])]
+
+    states = []
+    for k in range(n + 1):
+        for substate in enumerate_fock(n - k, N - 1):
+            state = np.concatenate(([k], substate))
+            states.append(state)
+
+    return {state: i for i, state in enumerate(states)} if indexed else states
+
+def fock_amplitude_ryser(U, vecn, vecm, check_photons=True):
     """Compute the Fock state amplitude using Ryser's algorithm.
 
     Parameters
@@ -20,21 +56,24 @@ def fock_amplitude_ryser(U, vecn, vecm):
         An array containing the input Fock state occupation numbers.
     vecm : np.ndarray
         An array containing the output Fock state occupation numbers.
+    check_photons : bool, optional
+        If True, check that the total number of photons is conserved. Default is True.
 
     Returns
     -------
     complex
         The amplitude of the transition from input Fock state vecn to output Fock state vecm.
     """
-    if vecn.sum() != vecm.sum():
-        raise ValueError("The sum of input and output occupation numbers must be equal.")
+    if check_photons:
+        if vecn.sum() != vecm.sum():
+            raise ValueError("The sum of input and output occupation numbers must be equal.")
 
     log_pref = 0.5 * (np.sum(gammaln(vecn + 1)) + np.sum(gammaln(vecm + 1)))
     pref = np.exp(log_pref)
 
     return ryser(repeat_matrix(U, vecn, vecm)) / pref
 
-def fock_amplitude_ryser_gray(U, vecn, vecm):
+def fock_amplitude_ryser_gray(U, vecn, vecm, check_photons=True):
     """Compute the Fock state amplitude using Ryser's algorithm with Gray code optimization.
 
     Parameters
@@ -45,22 +84,24 @@ def fock_amplitude_ryser_gray(U, vecn, vecm):
         An array containing the input Fock state occupation numbers.
     vecm : np.ndarray
         An array containing the output Fock state occupation numbers.
+    check_photons : bool, optional
+        If True, check that the total number of photons is conserved. Default is True.
 
     Returns
     -------
     complex
         The amplitude of the transition from input Fock state vecn to output Fock state vecm.
     """
-
-    if vecn.sum() != vecm.sum():
-        raise ValueError("The sum of input and output occupation numbers must be equal.")
+    if check_photons:
+        if vecn.sum() != vecm.sum():
+            raise ValueError("The sum of input and output occupation numbers must be equal.")
 
     log_pref = 0.5 * (np.sum(gammaln(vecn + 1)) + np.sum(gammaln(vecm + 1)))
     pref = np.exp(log_pref)
 
     return ryser_gray(repeat_matrix(U, vecn, vecm)) / pref
 
-def fock_amplitude_ryser_hyperrect(U, vecn, vecm):
+def fock_amplitude_ryser_hyperrect(U, vecn, vecm, check_photons=True):
     """Compute the Fock state amplitude using hyperrectangular Ryser algorithm.
 
     Parameters
@@ -71,22 +112,24 @@ def fock_amplitude_ryser_hyperrect(U, vecn, vecm):
         An array containing the input Fock state occupation numbers.
     vecm : np.ndarray
         An array containing the output Fock state occupation numbers.
+    check_photons : bool, optional
+        If True, check that the total number of photons is conserved. Default is True.
 
     Returns
     -------
     complex
         The amplitude of the transition from input Fock state vecn to output Fock state vecm.
     """
-
-    if vecn.sum() != vecm.sum():
-        raise ValueError("The sum of input and output occupation numbers must be equal.")
+    if check_photons:
+        if vecn.sum() != vecm.sum():
+            raise ValueError("The sum of input and output occupation numbers must be equal.")
 
     log_pref = 0.5 * (np.sum(gammaln(vecn + 1)) + np.sum(gammaln(vecm + 1)))
     pref = np.exp(log_pref)
 
     return ryser_hyperrect(U, vecn, vecm) / pref
 
-def fock_amplitude_ryser_hyperrect_gray(U, vecn, vecm):
+def fock_amplitude_ryser_hyperrect_gray(U, vecn, vecm, check_photons=True):
     """Compute the Fock state amplitude using hyperrectangular Ryser algorithm with Gray code optimization.
 
     Parameters
@@ -97,71 +140,24 @@ def fock_amplitude_ryser_hyperrect_gray(U, vecn, vecm):
         An array containing the input Fock state occupation numbers.
     vecm : np.ndarray
         An array containing the output Fock state occupation numbers.
+    check_photons : bool, optional
+        If True, check that the total number of photons is conserved. Default is True.
 
     Returns
     -------
     complex
         The amplitude of the transition from input Fock state vecn to output Fock state vecm.
     """
-
-    if vecn.sum() != vecm.sum():
-        raise ValueError("The sum of input and output occupation numbers must be equal.")
+    if check_photons:
+        if vecn.sum() != vecm.sum():
+            raise ValueError("The sum of input and output occupation numbers must be equal.")
 
     log_pref = 0.5 * (np.sum(gammaln(vecn + 1)) + np.sum(gammaln(vecm + 1)))
     pref = np.exp(log_pref)
 
     return ryser_hyperrect_gray(U, vecn, vecm) / pref
 
-# def fock_amplitude_two_mode_bs(U, n1, n2, m1, m2, phi=None):
-#     """Compute the Fock state amplitude for a two-mode beam splitter.
-
-#     Parameters
-#     ----------
-#     U : np.ndarray
-#         The 2x2 unitary matrix representing the linear optical network.
-#     n1 : int
-#         The occupation number of the first input mode.
-#     n2 : int
-#         The occupation number of the second input mode.
-#     m1 : int
-#         The occupation number of the first output mode.
-#     m2 : int
-#         The occupation number of the second output mode.
-#     phi : float, optional
-#         The phase associated with the beam splitter. If None, it will be inferred from U.
-
-#     Returns
-#     -------
-#     complex
-#         The amplitude of the transition from input Fock state (n1, n2) to output Fock state (m1, m2).
-#     """
-#     if n1 + n2 != m1 + m2:
-#         raise ValueError("The total number of photons must be conserved.")
-    
-#     s = -U[0, 1]
-#     c = U[1, 1]
-    
-#     if phi is None:
-#         if np.isclose(U[0, 0], 0):
-#             phi = np.angle(U[1,0]) + np.angle(U[0,1])
-#         else:
-#             phi = np.angle(U[0,0]) - np.angle(U[1,1])
-
-#     k_start = max(0, m1 - n2)
-#     coeff = (-1)**(n1 - k_start) * s**(n1 + m1 - 2*k_start) * c**(n2 - m1 + 2*k_start)\
-#         / (math.factorial(n1 - k_start) * math.factorial(n2 - m1 + k_start)
-#            * math.factorial(k_start) * math.factorial(m1 - k_start))
-
-#     amplitude = coeff
-#     for k in range(k_start+1, min(n1, m1)+1):
-#         coeff *= - c**2 * (n1 - k + 1) * (m1 - k + 1) / (s**2 * k * (n2 - m1 + k))
-#         amplitude += coeff
-
-#     amplitude *= np.exp(1j * m1 * phi)
-
-#     return amplitude
-
-def fock_amplitude_bs(p, q, phi, theta, vecn, vecm):
+def fock_amplitude_bs(p, q, phi, theta, vecn, vecm, check_photons=True):
     """Compute the Fock state amplitude for a beam splitter using the two-mode beam splitter function.
 
     Parameters
@@ -178,14 +174,17 @@ def fock_amplitude_bs(p, q, phi, theta, vecn, vecm):
         An array containing the input Fock state occupation numbers.
     vecm : np.ndarray
         An array containing the output Fock state occupation numbers.
+    check_photons : bool, optional
+        If True, check that the total number of photons is conserved. Default is True.
 
     Returns
     -------
     complex
         The amplitude of the transition from input Fock state vecn to output Fock state vecm.
     """
-    if vecn.sum() != vecm.sum():
-        raise ValueError("The sum of input and output occupation numbers must be equal.")
+    if check_photons:
+        if vecn.sum() != vecm.sum():
+            raise ValueError("The sum of input and output occupation numbers must be equal.")
 
     id_indices = [i for i in range(len(vecn)) if i not in (p, q)]
     if (vecn[id_indices] != vecm[id_indices]).any():
@@ -214,7 +213,7 @@ def fock_amplitude_bs(p, q, phi, theta, vecn, vecm):
 
     return amplitude
 
-def fock_amplitude_ps(i, phi, vecn, vecm):
+def fock_amplitude_ps(i, phi, vecn, vecm, check_photons=True):
     """Compute the Fock state amplitude for a phase shifter.
 
     Parameters
@@ -227,18 +226,24 @@ def fock_amplitude_ps(i, phi, vecn, vecm):
         An array containing the input Fock state occupation numbers.
     vecm : np.ndarray
         An array containing the output Fock state occupation numbers.
+    check_photons : bool, optional
+        If True, check that the total number of photons is conserved. Default is True.
 
     Returns
     -------
     complex
         The amplitude of the transition from input Fock state vecn to output Fock state vecm.
     """
+    if check_photons:
+        if vecn.sum() != vecm.sum():
+            warnings.warn("The sum of input and output occupation numbers are not equal,\
+                the amplitude will be zero.", UserWarning)
     if (vecn != vecm).any():
         return 0 # no photons can be exchanged in any modes
 
     return np.exp(1j * vecn[i] * phi)
 
-def fock_amplitude_multi_ps(phi, vecn, vecm):
+def fock_amplitude_multi_ps(phi, vecn, vecm, check_modes=True, check_photons=True):
     """Compute the Fock state amplitude for a multi-mode phase shifter.
 
     Parameters
@@ -249,14 +254,23 @@ def fock_amplitude_multi_ps(phi, vecn, vecm):
         An array containing the input Fock state occupation numbers.
     vecm : np.ndarray
         An array containing the output Fock state occupation numbers.
+    check_modes : bool, optional
+        If True, check that the length of phi matches the length of vecn and vecm. Default is True.
+    check_photons : bool, optional
+        If True, check that the total number of photons is conserved. Default is True.
 
     Returns
     -------
     complex
         The amplitude of the transition from input Fock state vecn to output Fock state vecm.
     """
-    if len(phi) != len(vecn) or len(phi) != len(vecm):
-        raise ValueError("The length of phi must match the length of vecn and vecm.")
+    if check_modes:
+        if len(phi) != len(vecn) or len(phi) != len(vecm):
+            raise ValueError("The length of phi must match the length of vecn and vecm.")
+    if check_photons:
+        if vecn.sum() != vecm.sum():
+            raise Warning("The sum of input and output occupation numbers are not equal,\
+                the amplitude will be zero.")
     if (vecn != vecm).any():
         return 0 # no photons can be exchanged in any modes
 
@@ -264,42 +278,7 @@ def fock_amplitude_multi_ps(phi, vecn, vecm):
 
     return amplitude
 
-# def fock_amplitude_two_mode_bs_wigner(U, n1, n2, m1, m2):
-#     """Compute the Fock state amplitude for a two-mode beam splitter using Wigner d-matrix.
-
-#     Parameters
-#     ----------
-#     U : np.ndarray
-#         The 2x2 unitary matrix representing the linear optical network.
-#     n1 : int
-#         The occupation number of the first input mode.
-#     n2 : int
-#         The occupation number of the second input mode.
-#     m1 : int
-#         The occupation number of the first output mode.
-#     m2 : int
-#         The occupation number of the second output mode.
-
-#     Returns
-#     -------
-#     complex
-#         The amplitude of the transition from input Fock state (n1, n2) to output Fock state (m1, m2).
-#     """
-#     if n1 + n2 != m1 + m2:
-#         raise ValueError("The total number of photons must be conserved.")
-
-#     theta = 2 * np.arccos(np.abs(U[1,1]))
-#     phi = np.angle(U[0,0]) - np.angle(U[1,1])
-
-#     j = (n1 + n2) / 2
-#     m = (n1 - n2) / 2
-#     mp = (m1 - m2) / 2
-
-#     d = T.wigner_d(j, mp, m, theta)
-
-#     amplitude = d * (np.abs(U[1,1])**(m1 + m2)) * (np.abs(U[0,1])**(n1 + n2))
-
-def fock_amplitude(U, vecn, vecm, method='ryser'):
+def fock_amplitude(U, vecn, vecm, method='ryser', check=True):
     """Compute the Fock state amplitude using the specified method.
 
     Parameters
@@ -313,20 +292,28 @@ def fock_amplitude(U, vecn, vecm, method='ryser'):
     method : str, optional
         The method to use for computation. Options are 'ryser', 'ryser_gray',
         'ryser_hyperrect', 'ryser_hyperrect_gray'. Default is 'ryser'.
-    
+    check : bool, optional
+        If True, performs all checks of the selected method. Default is True.
+
     Returns
     -------
     complex
         The amplitude of the transition from input Fock state vecn to output Fock state vecm.
+    
+    Remarks
+    -------
+    This function serves as a dispatcher to select the appropriate algorithm
+    for computing the Fock state amplitude based on the specified method.
+    Gray version of Ryser and hyperrectangular Ryser are almost always faster.
     """
     if method == 'ryser':
-        return fock_amplitude_ryser(U, vecn, vecm)
+        return fock_amplitude_ryser(U, vecn, vecm, check_photons=check)
     elif method == 'ryser_gray':
-        return fock_amplitude_ryser_gray(U, vecn, vecm)
+        return fock_amplitude_ryser_gray(U, vecn, vecm, check_photons=check)
     elif method == 'ryser_hyperrect':
-        return fock_amplitude_ryser_hyperrect(U, vecn, vecm)
+        return fock_amplitude_ryser_hyperrect(U, vecn, vecm, check_photons=check)
     elif method == 'ryser_hyperrect_gray':
-        return fock_amplitude_ryser_hyperrect_gray(U, vecn, vecm)
+        return fock_amplitude_ryser_hyperrect_gray(U, vecn, vecm, check_photons=check)
     else:
         raise ValueError(f"Unknown method: {method},\
                          try 'ryser', 'ryser_gray', 'ryser_hyperrect', or 'ryser_hyperrect_gray'.")
