@@ -31,7 +31,7 @@ def enumerate_fock(n, N, indexed=True, check_value=True):
         A list of numpy arrays, each representing a Fock state.
     """
     if check_value:
-        if n <= 0 or N < 0:
+        if n < 0 or N < 0:
             raise ValueError("Number of modes must be positive and number of photons must be non-negative.")
 
     if N == 1:
@@ -39,11 +39,12 @@ def enumerate_fock(n, N, indexed=True, check_value=True):
 
     states = []
     for k in range(n + 1):
-        for substate in enumerate_fock(n - k, N - 1):
+        for substate in enumerate_fock(n - k, N - 1, indexed=False):
+            #print(substate)
             state = np.concatenate(([k], substate))
             states.append(state)
 
-    return {state: i for i, state in enumerate(states)} if indexed else states
+    return {np.array2string(state): i for i, state in enumerate(states)} if indexed else states
 
 def fock_amplitude_ryser(U, vecn, vecm, check_photons=True):
     """Compute the Fock state amplitude using Ryser's algorithm.
@@ -278,7 +279,7 @@ def fock_amplitude_multi_ps(phi, vecn, vecm, check_modes=True, check_photons=Tru
 
     return amplitude
 
-def fock_amplitude(U, vecn, vecm, method='ryser', check=True):
+def fock_amplitude(U, vecn, vecm, method='ryser_gray', check=True):
     """Compute the Fock state amplitude using the specified method.
 
     Parameters
@@ -317,6 +318,43 @@ def fock_amplitude(U, vecn, vecm, method='ryser', check=True):
     else:
         raise ValueError(f"Unknown method: {method},\
                          try 'ryser', 'ryser_gray', 'ryser_hyperrect', or 'ryser_hyperrect_gray'.")
+
+def fock_tensor(U, n_photons, method='ryser_gray', check=True):
+    """Compute the Fock state amplitude tensor for all possible input and output Fock states
+    with a total of n_photons.
+
+    Parameters
+    ----------
+    U : np.ndarray
+        The unitary matrix representing the linear optical network.
+    n_photons : int
+        The total number of photons.
+    method : str, optional
+        The method to use for computation. Options are 'ryser', 'ryser_gray',
+        'ryser_hyperrect', 'ryser_hyperrect_gray'. Default is 'ryser'.
+    check : bool, optional
+        If True, performs all checks of the selected method. Default is True.
+    
+    Returns
+    -------
+    np.ndarray
+        A tensor of shape (M, M) where M is the number of Fock states with n_photons
+        in N modes, containing the amplitudes of transitions between all pairs of Fock states.
+    """
+    N = U.shape[0]
+    fock_states = enumerate_fock(n_photons, N, indexed=False, check_value=False)
+    nb_states = len(fock_states)
+    tensor = np.zeros((nb_states, nb_states), dtype=complex)
+    for i in range(nb_states):
+        for j in range(nb_states):
+            tensor[i, j] = fock_amplitude(U, fock_states[i], fock_states[j], method=method, check=check)
+    
+    return tensor
+
+# U = np.eye(3)
+# U = random_unitary(4)
+# tensor = fock_tensor(U, 3, method='ryser_gray', check=False)
+# print(tensor)
 
 # U = random_unitary(4)
 # vecn = np.array([1, 1, 2, 1])
