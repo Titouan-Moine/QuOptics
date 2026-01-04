@@ -6,7 +6,7 @@ import warnings
 import numpy as np
 from scipy.special import gammaln
 # from sympy.physics.quantum.spin import Rotation
-from ryser.permanent import ryser, ryser_gray, ryser_hyperrect, ryser_hyperrect_gray, repeat_matrix
+from ryser.permanent import ryser, ryser_gray, ryser_hyperrect, ryser_hyperrect_gray, glynn, glynn_gray, repeat_matrix
 from rnd_module import random_unitary
 from clements_scheme.clements_scheme import T
 
@@ -158,6 +158,62 @@ def fock_amplitude_ryser_hyperrect_gray(U, vecn, vecm, check_photons=True):
 
     return ryser_hyperrect_gray(U, vecn, vecm) / pref
 
+def fock_amplitude_glynn(U, vecn, vecm, check_photons=True):
+    """Compute the Fock state amplitude using Glynn's algorithm.
+
+    Parameters
+    ----------
+    U : np.ndarray
+        The unitary matrix representing the linear optical network.
+    vecn : np.ndarray
+        An array containing the input Fock state occupation numbers.
+    vecm : np.ndarray
+        An array containing the output Fock state occupation numbers.
+    check_photons : bool, optional
+        If True, check that the total number of photons is conserved. Default is True.
+
+    Returns
+    -------
+    complex
+        The amplitude of the transition from input Fock state vecn to output Fock state vecm.
+    """
+    if check_photons:
+        if vecn.sum() != vecm.sum():
+            raise ValueError("The sum of input and output occupation numbers must be equal.")
+
+    log_pref = 0.5 * (np.sum(gammaln(vecn + 1)) + np.sum(gammaln(vecm + 1)))
+    pref = np.exp(log_pref)
+
+    return glynn(repeat_matrix(U, vecn, vecm)) / pref
+
+def fock_amplitude_glynn_gray(U, vecn, vecm, check_photons=True):
+    """Compute the Fock state amplitude using Glynn's algorithm with Gray code optimization.
+
+    Parameters
+    ----------
+    U : np.ndarray
+        The unitary matrix representing the linear optical network.
+    vecn : np.ndarray
+        An array containing the input Fock state occupation numbers.
+    vecm : np.ndarray
+        An array containing the output Fock state occupation numbers.
+    check_photons : bool, optional
+        If True, check that the total number of photons is conserved. Default is True.
+
+    Returns
+    -------
+    complex
+        The amplitude of the transition from input Fock state vecn to output Fock state vecm.
+    """
+    if check_photons:
+        if vecn.sum() != vecm.sum():
+            raise ValueError("The sum of input and output occupation numbers must be equal.")
+
+    log_pref = 0.5 * (np.sum(gammaln(vecn + 1)) + np.sum(gammaln(vecm + 1)))
+    pref = np.exp(log_pref)
+
+    return glynn_gray(repeat_matrix(U, vecn, vecm)) / pref
+
 def fock_amplitude_bs(p, q, phi, theta, vecn, vecm, check_photons=True):
     """Compute the Fock state amplitude for a beam splitter using the two-mode beam splitter function.
 
@@ -292,7 +348,7 @@ def fock_amplitude(U, vecn, vecm, method='ryser_gray', check=True):
         An array containing the output Fock state occupation numbers.
     method : str, optional
         The method to use for computation. Options are 'ryser', 'ryser_gray',
-        'ryser_hyperrect', 'ryser_hyperrect_gray'. Default is 'ryser'.
+        'ryser_hyperrect', 'ryser_hyperrect_gray', 'glynn', 'glynn_gray'. Default is 'ryser'.
     check : bool, optional
         If True, performs all checks of the selected method. Default is True.
 
@@ -315,9 +371,14 @@ def fock_amplitude(U, vecn, vecm, method='ryser_gray', check=True):
         return fock_amplitude_ryser_hyperrect(U, vecn, vecm, check_photons=check)
     elif method == 'ryser_hyperrect_gray':
         return fock_amplitude_ryser_hyperrect_gray(U, vecn, vecm, check_photons=check)
+    elif method == 'glynn':
+        return fock_amplitude_glynn(U, vecn, vecm, check_photons=check)
+    elif method == 'glynn_gray':
+        return fock_amplitude_glynn_gray(U, vecn, vecm, check_photons=check)
     else:
         raise ValueError(f"Unknown method: {method},\
-                         try 'ryser', 'ryser_gray', 'ryser_hyperrect', or 'ryser_hyperrect_gray'.")
+                         try 'ryser', 'ryser_gray', 'ryser_hyperrect',\
+                         'ryser_hyperrect_gray', 'glynn', or 'glynn_gray'.")
 
 def fock_tensor(U, n_photons, method='ryser_gray', check=True):
     """Compute the Fock state amplitude tensor for all possible input and output Fock states
@@ -353,6 +414,7 @@ def fock_tensor(U, n_photons, method='ryser_gray', check=True):
 
 # U = np.eye(3)
 # U = random_unitary(4)
+# U = np.diag([1, 2, 3])
 # tensor = fock_tensor(U, 3, method='ryser_gray', check=False)
 # print(tensor)
 
