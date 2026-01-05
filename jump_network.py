@@ -159,22 +159,25 @@ def quimb_beamsplitter(m, n, mbis, nbis ,phi, theta, N, tags={'BEAMSPLITTER'}):
 	:param N: Taille du réseau
 	:param tags: Description
 	'''
-	T = np.eye(2, dtype=complex)
+	T = np.eye(4, dtype=complex)
 	e = np.exp(1j * phi)
 	c = np.cos(theta)
 	s = np.sin(theta)
 
-	T[0, 0] = e * c
-	T[1, 1] = c
-	T[0, 1] = -s
-	T[1, 0] = e * s
+	T[1, 1] = e * c
+	T[2, 2] = c
+	T[1, 2] = -s
+	T[2, 1] = e * s
 	# Reshape (2, 2) matrix to (2, 1, 2, 1) tensor for 4-leg structure
-	T = T.reshape(2, 1, 2, 1)
+	T = T.reshape(2, 2, 2, 2)
 	bs=qtn.Tensor(data=T, inds=(m, n, mbis, nbis), tags=tags)
 	return bs
 
 def quimb_phaseshifter(m, mbis, phi, N, tags={'PHASESHIFTER'}):
-	T = np.array([[np.exp(1j * phi)]], dtype=complex)
+	T = np.array([
+        [1, 0],
+        [0, np.exp(1j * phi)],
+    ], dtype=complex)
 	ps=qtn.Tensor(data=T, inds=(m, mbis), tags=tags)
 	return ps
 
