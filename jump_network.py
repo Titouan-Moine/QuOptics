@@ -178,7 +178,7 @@ def quimb_phaseshifter(m, mbis, phi, N, tags={'PHASESHIFTER'}):
 	ps=qtn.Tensor(data=T, inds=(m, mbis), tags=tags)
 	return ps
 
-def quimb_network(n_modes, n_gate, jump_size=1, theta_range=(0, math.pi/2), phi_range=(0, 2*math.pi), bs=True, ps=True, seed=None):
+def quimb_network(n_modes, n_gate, jump_size=1, theta_range=(0, math.pi/2), phi_range=(0, 2*math.pi), bs=True, ps=True, seed=None, orderlist=False):
 	"""
 	Create a random jump network as a quimb TensorNetwork on n_modes modes with n_gate connected at most with a jump_size neighbour mode
 	beamsplitter gates.
@@ -235,6 +235,7 @@ def quimb_network(n_modes, n_gate, jump_size=1, theta_range=(0, math.pi/2), phi_
 				index_counter += 1
 				P = quimb_phaseshifter(i, m_out, phi, n_modes)
 				TN = TN & P
+				orderlist.append(P)
 				used_indices.add(i)  # Mark input as used
 			else:
 				m_out = index_counter
@@ -242,6 +243,7 @@ def quimb_network(n_modes, n_gate, jump_size=1, theta_range=(0, math.pi/2), phi_
 				index_counter += 2
 				B = quimb_beamsplitter(i, j, m_out, n_out, phi, theta, n_modes)
 				TN = TN & B
+				orderlist.append(B)
 				used_indices.add(i)  # Mark inputs as used
 				used_indices.add(j)
 		elif bs:
@@ -250,6 +252,7 @@ def quimb_network(n_modes, n_gate, jump_size=1, theta_range=(0, math.pi/2), phi_
 			index_counter += 2
 			B = quimb_beamsplitter(i, j, m_out, n_out, phi, theta, n_modes)
 			TN = TN & B
+			orderlist.append(B)
 			used_indices.add(i)  # Mark inputs as used
 			used_indices.add(j)
 		elif ps:
@@ -257,10 +260,14 @@ def quimb_network(n_modes, n_gate, jump_size=1, theta_range=(0, math.pi/2), phi_
 			index_counter += 1
 			P = quimb_phaseshifter(i, m_out, phi, n_modes)
 			TN = TN & P
+			orderlist.append(P)
 			used_indices.add(i)  # Mark input as used
 
 	# Create a quimb TensorNetwork from the gates
-	return TN
+	if orderlist:
+		return (TN, orderlist)
+	else:
+		return TN
 
 if __name__ == "__main__":
 	# print("=" * 60)
