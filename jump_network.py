@@ -206,7 +206,7 @@ def quimb_network(n_modes, n_gate, jump_size=1, theta_range=(0, math.pi/2), phi_
 	TN = qtn.TensorNetwork()
 	index_counter = n_modes  # Start generating new indices after existing modes
 	used_indices = set()  # Track indices that are already connected to tensors
-
+	gatelist=[]
 	for _ in range(n_gate):
 		# Get list of available indices (not yet connected)
 		available = [idx for idx in range(index_counter) if idx not in used_indices]
@@ -235,7 +235,7 @@ def quimb_network(n_modes, n_gate, jump_size=1, theta_range=(0, math.pi/2), phi_
 				index_counter += 1
 				P = quimb_phaseshifter(i, m_out, phi, n_modes)
 				TN = TN & P
-				orderlist.append(P)
+				gatelist.append(P)
 				used_indices.add(i)  # Mark input as used
 			else:
 				m_out = index_counter
@@ -243,7 +243,7 @@ def quimb_network(n_modes, n_gate, jump_size=1, theta_range=(0, math.pi/2), phi_
 				index_counter += 2
 				B = quimb_beamsplitter(i, j, m_out, n_out, phi, theta, n_modes)
 				TN = TN & B
-				orderlist.append(B)
+				gatelist.append(B)
 				used_indices.add(i)  # Mark inputs as used
 				used_indices.add(j)
 		elif bs:
@@ -252,7 +252,7 @@ def quimb_network(n_modes, n_gate, jump_size=1, theta_range=(0, math.pi/2), phi_
 			index_counter += 2
 			B = quimb_beamsplitter(i, j, m_out, n_out, phi, theta, n_modes)
 			TN = TN & B
-			orderlist.append(B)
+			gatelist.append(B)
 			used_indices.add(i)  # Mark inputs as used
 			used_indices.add(j)
 		elif ps:
@@ -260,12 +260,12 @@ def quimb_network(n_modes, n_gate, jump_size=1, theta_range=(0, math.pi/2), phi_
 			index_counter += 1
 			P = quimb_phaseshifter(i, m_out, phi, n_modes)
 			TN = TN & P
-			orderlist.append(P)
+			gatelist.append(P)
 			used_indices.add(i)  # Mark input as used
 
 	# Create a quimb TensorNetwork from the gates
 	if orderlist:
-		return (TN, orderlist)
+		return (TN, gatelist)
 	else:
 		return TN
 
