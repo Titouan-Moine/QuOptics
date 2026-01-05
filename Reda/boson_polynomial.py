@@ -33,8 +33,8 @@ def boson_distribution_polynomial(A):
 
     for S in outcomes:
         a = poly.get(S, 0+0j)
-        denom = np.prod([math.factorial(s) for s in S])  # s1! * s2! * ...
-        p = (abs(a) ** 2) / denom     # <-- fixed: multiply by denom
+        factorial = np.prod([math.factorial(s) for s in S])
+        p = (abs(a) ** 2) * factorial   # ✅ CORRECT
         probs.append(float(p.real))
 
     probs = np.array(probs, dtype=float)
