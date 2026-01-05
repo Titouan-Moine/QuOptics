@@ -1,4 +1,5 @@
 import quimb as qb
+import quimb.tensor as qtn
 import numpy as np
 import math
 
@@ -145,7 +146,7 @@ def create_jump_random_network(n_modes, n_gate, list=False, jump_size=1, theta_r
 	return U
 
 
-def quimb_beamsplitter(m, n ,phi, theta, N):
+def quimb_beamsplitter(m, n ,phi, theta, N, tags={'BEAMSPLITTER'}):
 	T = np.eye(2, dtype=complex)
 	e = np.exp(1j * phi)
 	c = np.cos(theta)
@@ -155,13 +156,12 @@ def quimb_beamsplitter(m, n ,phi, theta, N):
 	T[1, 1] = c
 	T[0, 1] = -s
 	T[1, 0] = e * s
-	bs=qb.Tensor(data=T, inds=(m, n), tags={'BEAMSPLITTER'})
+	bs=qtn.Tensor(data=T, inds=(m, n), tags={'BEAMSPLITTER'})
 	return bs
 
-def quimb_phaseshifter(m, phi, N):
-	T = np.eye(1, dtype=complex)
-	T[0, 0] = np.exp(1j * phi)
-	ps=qb.Tensor(data=T, inds=(m), tags={'PHASESHIFTER'})
+def quimb_phaseshifter(m, phi, N, tags={'PHASESHIFTER'}):
+	T = np.array([np.exp(1j * phi)], dtype=complex)
+	ps=qtn.Tensor(data=T, inds=(m,), tags={'PHASESHIFTER'})
 	return ps
 
 def quimb_network(n_modes, n_gate, jump_size=1, theta_range=(0, math.pi/2), phi_range=(0, 2*math.pi), bs=True, ps=True, seed=None):
@@ -189,7 +189,7 @@ def quimb_network(n_modes, n_gate, jump_size=1, theta_range=(0, math.pi/2), phi_
 		raise ValueError("n_gate must be >= 0")
 
 	rng = np.random.default_rng(seed)
-	TN = qb.TensorNetwork()
+	TN = qtn.TensorNetwork()
 
 	for _ in range(n_gate):
 		# randomly select one mode then another mode within jump_size
@@ -228,6 +228,8 @@ if __name__ == "__main__":
 	# err = np.max(np.abs(U.conj().T @ U - I))
 	# print(f"Unitarity error max |U^†U - I| = {err:e}")
 
-	TN = quimb_network(4, 2, jump_size=1, seed=42)
-	TN.draw(color=['Beamsplitter', 'Phaseshifter'], figsize=(4, 4), show_inds='all')
+	#TN = quimb_network(5, 4, jump_size=1, seed=42)
+	
+	TN=quimb_beamsplitter(0,1,math.pi/2,math.pi/4,4) & quimb_beamsplitter(1,2,math.pi/3,math.pi/4,4) & quimb_beamsplitter(0,1,math.pi/5,math.pi/4,4) & quimb_beamsplitter(2,3,math.pi/4,math.pi/4,4, tags={'BEAMSPLITTER_A'})
+	TN.draw(color=['BEAMSPLITTER', 'PHASESHIFTER', 'BEAMSPLITTER_A'], figsize=(5, 5), show_inds='all')
 
