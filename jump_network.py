@@ -146,7 +146,19 @@ def create_jump_random_network(n_modes, n_gate, list=False, jump_size=1, theta_r
 	return U
 
 
-def quimb_beamsplitter(m, n ,phi, theta, N, tags={'BEAMSPLITTER'}):
+def quimb_beamsplitter(m, n, mbis, nbis ,phi, theta, N, tags={'BEAMSPLITTER'}):
+	'''
+	Docstring for quimb_beamsplitter
+	
+	:param m: jambe entrée 1
+	:param n: jambe entrée 2
+	:param mbis: jambre sortie 1
+	:param nbis: jambre sortie 2
+	:param phi: angle de phase
+	:param theta: angle de mélange
+	:param N: Taille du réseau
+	:param tags: Description
+	'''
 	T = np.eye(2, dtype=complex)
 	e = np.exp(1j * phi)
 	c = np.cos(theta)
@@ -156,12 +168,14 @@ def quimb_beamsplitter(m, n ,phi, theta, N, tags={'BEAMSPLITTER'}):
 	T[1, 1] = c
 	T[0, 1] = -s
 	T[1, 0] = e * s
-	bs=qtn.Tensor(data=T, inds=(m, n), tags={'BEAMSPLITTER'})
+	# Reshape (2, 2) matrix to (2, 1, 2, 1) tensor for 4-leg structure
+	T = T.reshape(2, 1, 2, 1)
+	bs=qtn.Tensor(data=T, inds=(m, n, mbis, nbis), tags=tags)
 	return bs
 
-def quimb_phaseshifter(m, phi, N, tags={'PHASESHIFTER'}):
-	T = np.array([np.exp(1j * phi)], dtype=complex)
-	ps=qtn.Tensor(data=T, inds=(m,), tags={'PHASESHIFTER'})
+def quimb_phaseshifter(m, mbis, phi, N, tags={'PHASESHIFTER'}):
+	T = np.array([[np.exp(1j * phi)]], dtype=complex)
+	ps=qtn.Tensor(data=T, inds=(m, mbis), tags=tags)
 	return ps
 
 def quimb_network(n_modes, n_gate, jump_size=1, theta_range=(0, math.pi/2), phi_range=(0, 2*math.pi), bs=True, ps=True, seed=None):
@@ -190,46 +204,90 @@ def quimb_network(n_modes, n_gate, jump_size=1, theta_range=(0, math.pi/2), phi_
 
 	rng = np.random.default_rng(seed)
 	TN = qtn.TensorNetwork()
+	index_counter = n_modes  # Start generating new indices after existing modes
+	used_indices = set()  # Track indices that are already connected to tensors
 
 	for _ in range(n_gate):
-		# randomly select one mode then another mode within jump_size
-		i = rng.integers(0, n_modes)
-		j = rng.integers(max(0, i - jump_size), min(n_modes, i + jump_size + 1))
-		if j == i:
-			j = rng.integers(max(0, i - jump_size), min(n_modes, i + jump_size + 1))
+		# Get list of available indices (not yet connected)
+		available = [idx for idx in range(index_counter) if idx not in used_indices]
+		
+		# If not enough available indices, skip this gate
+		if len(available) < 2:
+			break
+		
+		# Randomly select one mode from available indices
+		i = rng.choice(available)
+		
+		# Select another mode within jump_size distance, from available indices
+		candidates = [idx for idx in available if max(0, i - jump_size) <= idx <= min(index_counter - 1, i + jump_size + 1) and idx != i]
+		if not candidates:
+			continue
+		j = rng.choice(candidates)
+		
 		# sample random theta and phi
 		theta = rng.uniform(*theta_range)
 		phi = rng.uniform(*phi_range)
+		
 		if ps & bs:
 			# apply at random a phase shifter or beamsplitter
 			if rng.random() < 0.5:
-				P = quimb_phaseshifter(i, phi, n_modes)
+				m_out = index_counter
+				index_counter += 1
+				P = quimb_phaseshifter(i, m_out, phi, n_modes)
 				TN = TN & P
+				used_indices.add(i)  # Mark input as used
 			else:
-				B = quimb_beamsplitter(i, j, phi, theta, n_modes)
+				m_out = index_counter
+				n_out = index_counter + 1
+				index_counter += 2
+				B = quimb_beamsplitter(i, j, m_out, n_out, phi, theta, n_modes)
 				TN = TN & B
+				used_indices.add(i)  # Mark inputs as used
+				used_indices.add(j)
 		elif bs:
-			B = quimb_beamsplitter(i, j, phi, theta, n_modes)
+			m_out = index_counter
+			n_out = index_counter + 1
+			index_counter += 2
+			B = quimb_beamsplitter(i, j, m_out, n_out, phi, theta, n_modes)
 			TN = TN & B
+			used_indices.add(i)  # Mark inputs as used
+			used_indices.add(j)
 		elif ps:
-			P = quimb_phaseshifter(i, phi, n_modes)
+			m_out = index_counter
+			index_counter += 1
+			P = quimb_phaseshifter(i, m_out, phi, n_modes)
 			TN = TN & P
+			used_indices.add(i)  # Mark input as used
 
 	# Create a quimb TensorNetwork from the gates
 	return TN
 
 if __name__ == "__main__":
-	# quick demo and unitarity check for n=4
-	# U = create_jump_random_network(4, 2, jump_size=1, seed=42)
-	# print("Unitary U (4x4) from jump beamsplitters:")
-	# np.set_printoptions(precision=4, suppress=True)
-	# print(U)
-	# I = np.eye(4)
-	# err = np.max(np.abs(U.conj().T @ U - I))
-	# print(f"Unitarity error max |U^†U - I| = {err:e}")
-
-	#TN = quimb_network(5, 4, jump_size=1, seed=42)
+	# print("=" * 60)
+	# print("Test 1: Small network (3 modes, 2 gates)")
+	# print("=" * 60)
+	# TN1 = quimb_network(3, 2, jump_size=2, seed=42, bs=True, ps=False)
+	# print(f"Number of tensors: {TN1.num_tensors}")
+	# print(f"Tensors created: {[(t.inds, list(t.tags)) for t in TN1.tensors]}")
+	# print("\nDrawing network 1...")
+	# TN1.draw(color=['BEAMSPLITTER', 'PHASESHIFTER'], figsize=(10, 8), show_inds='all')
 	
-	TN=quimb_beamsplitter(0,1,math.pi/2,math.pi/4,4) & quimb_beamsplitter(1,2,math.pi/3,math.pi/4,4) & quimb_beamsplitter(0,1,math.pi/5,math.pi/4,4) & quimb_beamsplitter(2,3,math.pi/4,math.pi/4,4, tags={'BEAMSPLITTER_A'})
-	TN.draw(color=['BEAMSPLITTER', 'PHASESHIFTER', 'BEAMSPLITTER_A'], figsize=(5, 5), show_inds='all')
+	print("\n" + "=" * 60)
+	print("Test 2: Mixed network (4 modes, 3 gates with both BS and PS)")
+	print("=" * 60)
+	TN2 = quimb_network(4, 3, jump_size=1, seed=123, bs=True, ps=True)
+	print(f"Number of tensors: {TN2.num_tensors}")
+	print(f"Tensors created: {[(t.inds, list(t.tags)) for t in TN2.tensors]}")
+	print("\nDrawing network 2...")
+	TN2.draw(color=['BEAMSPLITTER', 'PHASESHIFTER'], figsize=(10, 8), show_inds='all')
+	TN2.contract().draw(color=['BEAMSPLITTER', 'PHASESHIFTER'], figsize=(10, 8), show_inds='all')
+	
+	# print("\n" + "=" * 60)
+	# print("Test 3: Phase shifter only (3 modes, 2 gates)")
+	# print("=" * 60)
+	# TN3 = quimb_network(3, 2, jump_size=1, seed=99, bs=False, ps=True)
+	# print(f"Number of tensors: {TN3.num_tensors}")
+	# print(f"Tensors created: {[(t.inds, list(t.tags)) for t in TN3.tensors]}")
+	# print("\nDrawing network 3...")
+	# TN3.draw(color=['BEAMSPLITTER', 'PHASESHIFTER'], figsize=(10, 8), show_inds='all')
 
