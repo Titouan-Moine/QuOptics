@@ -150,9 +150,9 @@ def ryser_hyperrect(U, vecn, vecm, n=None):
     """
     if n is None:
         n = np.sum(vecn)
-    if np.sum(vecn) != np.sum(vecm) or np.sum(vecm) != n:
-        raise ValueError("vecn and vecm must sum to the same amount\
-                         (i.e. have the same number of photons)")
+    # if np.sum(vecn) != np.sum(vecm) or np.sum(vecm) != n:
+    #     raise ValueError("vecn and vecm must sum to the same amount\
+    #                      (i.e. have the same number of photons)")
     N = U.shape[0]
     # take indices of non-zero coords of vecn and vecm
     nzn_mask = vecn != 0
@@ -255,9 +255,9 @@ def ryser_hyperrect_gray(U, vecn, vecm, n=None):
     """
     if n is None:
         n = np.sum(vecn)
-    if np.sum(vecn) != np.sum(vecm) or np.sum(vecm) != n:
-        raise ValueError("vecn and vecm must sum to the same amount\
-                         (i.e. have the same number of photons)")
+    # if np.sum(vecn) != np.sum(vecm) or np.sum(vecm) != n:
+    #     raise ValueError("vecn and vecm must sum to the same amount\
+    #                      (i.e. have the same number of photons)")
 
     N = U.shape[0]
     # take indices of non-zero coords of vecn and vecm
@@ -296,6 +296,77 @@ def ryser_hyperrect_gray(U, vecn, vecm, n=None):
             prev_c = c
     return perm
 
+def glynn(A):
+    """Compute the permanent of a matrix using Glynn's algorithm.
+
+    Parameters
+    ----------
+    A : np.ndarray
+        The input matrix.
+
+    Returns
+    -------
+    complex
+        The permanent of the matrix.
+    """
+    n = A.shape[0]
+    perm = 0.0 + 0.0j
+    for S in range(1 << (n - 1)):
+        row_sum = np.zeros(n, dtype=complex)
+        sign = (-1)**(n-1)
+
+        for j in range(1, n):
+            if S & (1 << (j - 1)):
+                sign = -sign
+                row_sum += A[:, j]
+            else:
+                row_sum -= A[:, j]
+
+        row_sum += A[:, 0]
+        prod = row_sum.prod()
+        perm += sign * prod
+    return perm / (2**(n-1))
+
+def glynn_gray(A):
+    """Compute the permanent using Glynn's algorithm with Gray code optimization.
+
+    Parameters
+    ----------
+    A : np.ndarray
+        The input matrix.
+
+    Returns
+    -------
+    complex
+        The permanent of the matrix.
+    """
+    n = A.shape[0]
+    perm = 0.0 + 0.0j
+
+    # S = 0 initialization
+    row_sum = A[:, 0].copy()
+    for j in range(1, n):
+        row_sum -= A[:, j]
+
+    sign = (-1) ** (n-1)
+    perm += sign * row_sum.prod()
+
+    prev_S = 0
+
+    for S in bin_gray(n - 1)[1:]:
+        j = int(prev_S ^ S).bit_length() - 1 + 1  # +1 skips column 0
+
+        if (S >> (j - 1)) & 1:
+            row_sum += 2 * A[:, j]
+        else:
+            row_sum -= 2 * A[:, j]
+
+        sign = -sign
+        perm += sign * row_sum.prod()
+        prev_S = S
+
+    return perm / (2 ** (n - 1))
+
 def repeat_matrix(U, vecn, vecm):
     """Construct the repeating sub-matrix from base matrix U and multiplicity vectors.
 
@@ -326,17 +397,19 @@ def repeat_matrix(U, vecn, vecm):
     return repeated_U
 
 
-# U = random_unitary(4)
-# vecn = np.array([1,3,1,1])
-# vecm = np.array([1,2,1,2])
+U = random_unitary(4)
+vecn = np.array([1,3,1,1])
+vecm = np.array([1,2,1,2])
 # vecn = np.array([1,3,1,1])
 # vecm = np.array([1,2,2,1])
 # U = np.array([[1, 0, 0, 0],
 #               [1, 0, 0, 0],
 #               [1, 0, 0, 0],
 #               [1, 0, 0, 0]])
-# print(repeat_matrix(U, vecn, vecm))
-# print("Permanent (Ryser) :", ryser(repeat_matrix(U, vecn, vecm)))
-# print("Permanent (Ryser Gray) :", ryser_gray(repeat_matrix(U, vecn, vecm)))
-# print("Permanent (Ryser Hyperrect) :", ryser_hyperrect(U, vecn, vecm))
-# print("Permanent (Ryser Hyperrect Gray) :", ryser_hyperrect_gray(U, vecn, vecm))
+print(repeat_matrix(U, vecn, vecm))
+print("Permanent (Ryser) :", ryser(repeat_matrix(U, vecn, vecm)))
+print("Permanent (Ryser Gray) :", ryser_gray(repeat_matrix(U, vecn, vecm)))
+print("Permanent (Ryser Hyperrect) :", ryser_hyperrect(U, vecn, vecm))
+print("Permanent (Ryser Hyperrect Gray) :", ryser_hyperrect_gray(U, vecn, vecm))
+print("Permanent (Glynn) :", glynn(repeat_matrix(U, vecn, vecm)))
+print("Permanent (Glynn Gray) :", glynn_gray(repeat_matrix(U, vecn, vecm)))
