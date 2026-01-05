@@ -184,7 +184,7 @@ def quimb_network(n_modes, n_gate, jump_size=1, theta_range=(0, math.pi/2), phi_
 	beamsplitter gates.
 
 	Arguments:
-	- n_modes: number of modes (integer >= 1)
+	- n_modes: number of modes entering (integer >= 1)
 	- n_gate: number of beamsplitter gates to apply (integer >= 0)
 	- jump_size: maximum distance between modes connected by a beamsplitter gate (integer >= 1)
 	- theta_range: tuple (min, max) for uniform sampling of theta angles
@@ -272,15 +272,16 @@ if __name__ == "__main__":
 	# print("\nDrawing network 1...")
 	# TN1.draw(color=['BEAMSPLITTER', 'PHASESHIFTER'], figsize=(10, 8), show_inds='all')
 	
-	print("\n" + "=" * 60)
-	print("Test 2: Mixed network (4 modes, 3 gates with both BS and PS)")
-	print("=" * 60)
+	# print("\n" + "=" * 60)
+	# print("Test 2: Mixed network (4 modes, 3 gates with both BS and PS)")
+	# print("=" * 60)
 	TN2 = quimb_network(4, 3, jump_size=1, seed=123, bs=True, ps=True)
-	print(f"Number of tensors: {TN2.num_tensors}")
-	print(f"Tensors created: {[(t.inds, list(t.tags)) for t in TN2.tensors]}")
-	print("\nDrawing network 2...")
-	TN2.draw(color=['BEAMSPLITTER', 'PHASESHIFTER'], figsize=(10, 8), show_inds='all')
-	TN2.contract().draw(color=['BEAMSPLITTER', 'PHASESHIFTER'], figsize=(10, 8), show_inds='all')
+	TN2.draw()
+	# print(f"Number of tensors: {TN2.num_tensors}")
+	# print(f"Tensors created: {[(t.inds, list(t.tags)) for t in TN2.tensors]}")
+	# print("\nDrawing network 2...")
+	# TN2.draw(color=['BEAMSPLITTER', 'PHASESHIFTER'], figsize=(10, 8), show_inds='all')
+	# TN2.contract().draw(color=['BEAMSPLITTER', 'PHASESHIFTER'], figsize=(10, 8), show_inds='all')
 	
 	# print("\n" + "=" * 60)
 	# print("Test 3: Phase shifter only (3 modes, 2 gates)")
