@@ -2,7 +2,7 @@ import time
 import numpy as np
 from utils import random_unitary
 from boson_permanent import boson_distribution_permanent
-from new import boson_distribution_polynomial
+from boson_polynomial import boson_distribution_polynomial
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -34,7 +34,7 @@ def compare(m, n, seed=0):
 
 if __name__ == "__main__":
     # Plusieurs tailles à tester
-    sizes = [(5,2),(15, 6)]
+    sizes = [(5,2),(7,3),(9,5),(11,6),(15, 6)]
 
     results = [compare(m, n) for m, n in sizes]
 
