@@ -5,12 +5,13 @@ import math
 import warnings
 import numpy as np
 from scipy.special import gammaln
+import sparse
 # from sympy.physics.quantum.spin import Rotation
 from ryser.permanent import ryser, ryser_gray, ryser_hyperrect, ryser_hyperrect_gray, glynn, glynn_gray, repeat_matrix
 from rnd_module import random_unitary
 from clements_scheme.clements_scheme import T
 
-def enumerate_fock(n, N, indexed=True, check_value=True):
+def enumerate_fock(n, N, indexed=False, check_value=True):
     """Generate all Fock states of N modes with a total of n photons
     recursively in lexicographic order.
 
@@ -21,7 +22,7 @@ def enumerate_fock(n, N, indexed=True, check_value=True):
     N : int
         The number of modes.
     indexed : bool, optional
-        If True, return a dictionary mapping each Fock state to its index. Default is True.
+        If True, return a dictionary mapping each Fock state to its index. Default is False.
     check_value : bool, optional
         If True, check that n is non-negative and N is positive. Default is True.
 
@@ -35,7 +36,7 @@ def enumerate_fock(n, N, indexed=True, check_value=True):
             raise ValueError("Number of modes must be positive and number of photons must be non-negative.")
 
     if N == 1:
-        return [np.array([n])]
+        return {"n": 0} if indexed else [np.array([n])]
 
     states = []
     for k in range(n + 1):
@@ -214,23 +215,19 @@ def fock_amplitude_glynn_gray(U, vecn, vecm, check_photons=True):
 
     return glynn_gray(repeat_matrix(U, vecn, vecm)) / pref
 
-def fock_amplitude_bs(p, q, phi, theta, vecn, vecm, check_photons=True):
+def fock_amplitude_bs(phi, theta, invec, outvec, check_photons=True):
     """Compute the Fock state amplitude for a beam splitter using the two-mode beam splitter function.
 
     Parameters
     ----------
-    p : int
-        The index of the first mode the beam splitter acts on.
-    q : int
-        The index of the second mode the beam splitter acts on.
     phi : float
         The phase associated with the beam splitter.
     theta : float
         The mixing angle of the beam splitter.
-    vecn : np.ndarray
-        An array containing the input Fock state occupation numbers.
-    vecm : np.ndarray
-        An array containing the output Fock state occupation numbers.
+    invec : np.ndarray
+        An array containing the input Fock state occupation numbers for the corresponding modes.
+    outvec : np.ndarray
+        An array containing the output Fock state occupation numbers for the corresponding modes.
     check_photons : bool, optional
         If True, check that the total number of photons is conserved. Default is True.
 
@@ -240,33 +237,33 @@ def fock_amplitude_bs(p, q, phi, theta, vecn, vecm, check_photons=True):
         The amplitude of the transition from input Fock state vecn to output Fock state vecm.
     """
     if check_photons:
-        if vecn.sum() != vecm.sum():
-            raise ValueError("The sum of input and output occupation numbers must be equal.")
+        if invec.sum() != outvec.sum():
+            warnings.warn("The sum of input and output occupation numbers are not equal,\
+                the amplitude will be zero.", UserWarning)
 
-    id_indices = [i for i in range(len(vecn)) if i not in (p, q)]
-    if (vecn[id_indices] != vecm[id_indices]).any():
+    if invec.sum() != outvec.sum():
         return 0 # no photons can be exchanged in other modes
 
     s = np.sin(theta)
     c = np.cos(theta)
-    n1 = vecn[p]
-    n2 = vecn[q]
-    m1 = vecm[p]
-    m2 = vecm[q]
+    
+    i = invec[0]
+    j = invec[1]
+    k = outvec[0]
+    l = outvec[1]
 
-    k_start = max(0, m1 - n2)
-    coeff = (-1)**(n1 - k_start) * s**(n1 + m1 - 2*k_start) * c**(n2 - m1 + 2*k_start)\
-        / (math.factorial(n1 - k_start) * math.factorial(n2 - m1 + k_start)
-           * math.factorial(k_start) * math.factorial(m1 - k_start))
+    p_start = max(0, k - j)
+    term = (-1)**(i - p_start) * s**(i + k - 2*p_start) * c**(j - k + 2*p_start)\
+            * math.comb(i, p_start) * math.comb(j, k - p_start)
 
-    amplitude = coeff
-    for k in range(k_start+1, min(n1, m1)+1):
-        coeff *= - c**2 * (n1 - k + 1) * (m1 - k + 1) / (s**2 * k * (n2 - m1 + k))
-        amplitude += coeff
+    amplitude = term
+    for p in range(p_start+1, min(i, k)+1):
+        term *= - c**2 * (i - p + 1) * (k - p + 1) / (s**2 * p * (j - k + p))
+        amplitude += term
 
-    amplitude *= np.exp(1j * m1 * phi)
-    amplitude *= math.sqrt(math.factorial(n1) * math.factorial(n2) *
-                       math.factorial(m1) * math.factorial(m2))
+    amplitude *= np.exp(1j * k * phi)
+    amplitude *= math.sqrt(math.factorial(k) * math.factorial(l) /
+                       (math.factorial(i) * math.factorial(j)))
 
     return amplitude
 
@@ -380,9 +377,10 @@ def fock_amplitude(U, vecn, vecm, method='ryser_gray', check=True):
                          try 'ryser', 'ryser_gray', 'ryser_hyperrect',\
                          'ryser_hyperrect_gray', 'glynn', or 'glynn_gray'.")
 
-def fock_tensor(U, n_photons, method='ryser_gray', check=True):
+def fock_tensor(U, n_photons, sparse_tensor=True, method='ryser_gray', check=True):
     """Compute the Fock state amplitude tensor for all possible input and output Fock states
-    with a total of n_photons.
+    with a total of n_photons. In order to have a coherent tensor structure, it is filled with 0s
+    for irrelevant transitions (when there are more than n_photons photons).
 
     Parameters
     ----------
@@ -390,6 +388,8 @@ def fock_tensor(U, n_photons, method='ryser_gray', check=True):
         The unitary matrix representing the linear optical network.
     n_photons : int
         The total number of photons.
+    sparse_tensor : bool, optional
+        If True, returns a sparse tensor. Default is True.
     method : str, optional
         The method to use for computation. Options are 'ryser', 'ryser_gray',
         'ryser_hyperrect', 'ryser_hyperrect_gray'. Default is 'ryser'.
@@ -403,33 +403,121 @@ def fock_tensor(U, n_photons, method='ryser_gray', check=True):
         in N modes, containing the amplitudes of transitions between all pairs of Fock states.
     """
     N = U.shape[0]
-    fock_states = enumerate_fock(n_photons, N, indexed=False, check_value=False)
-    nb_states = len(fock_states)
-    tensor = np.zeros((nb_states, nb_states), dtype=complex)
-    for i in range(nb_states):
-        for j in range(nb_states):
-            tensor[i, j] = fock_amplitude(U, fock_states[i], fock_states[j], method=method, check=check)
-    
+    # fock_states = enumerate_fock(n_photons, N, indexed=False, check_value=False)
+    # nb_states = len(fock_states)
+    # tensor = np.zeros((nb_states, nb_states), dtype=complex)
+    # for i in range(nb_states):
+    #     for j in range(nb_states):
+    #         tensor[i, j] = fock_amplitude(U, fock_states[i], fock_states[j], method=method, check=check)
+    if sparse_tensor:
+        coords = []
+        data = []
+
+        for n in range(n_photons + 1):
+            fock_basis = enumerate_fock(n, N, check_value=check)
+            for invec in fock_basis:
+                for outvec in fock_basis:
+                    amp = fock_amplitude(U, invec, outvec, method=method, check=check)
+                    
+                    if abs(amp) > 1e-15:  # only store non-zero amplitudes
+                        # The index is the concatenation of invec and outvec
+                        coords.append(list(invec) + list(outvec))
+                        data.append(amp)
+        
+        # verify if coords is empty to avoid errors in sparse.COO
+        if not coords:
+            return sparse.COO([], [], shape=((n_photons + 1,) * (2 * N)))
+        
+        coords_array = np.array(coords).T
+        shape = (n_photons + 1,) * (2 * N)
+        return sparse.COO(coords_array, data, shape=shape)
+    else:
+        tensor = np.zeros((n_photons + 1,) * (2 * N), dtype=complex)
+        for n in range(n_photons + 1):
+            fock_basis = enumerate_fock(n, N, check_value=check)
+            for invec in fock_basis:
+                for outvec in fock_basis:
+                    index_in = tuple(invec)
+                    index_out = tuple(outvec)
+                    tensor[index_in + index_out] = fock_amplitude(U, invec, outvec, method=method, check=check)
     return tensor
 
-# U = np.eye(3)
-# U = random_unitary(4)
-# U = np.diag([1, 2, 3])
-# tensor = fock_tensor(U, 3, method='ryser_gray', check=False)
-# print(tensor)
+def fock_tensor_bs(phi, theta, n_photons, sparse_tensor=True, check=True):
+    """Compute the Fock state amplitude tensor for all possible input and output Fock states
+    with a total of n_photons for a beam splitter.
 
-# U = random_unitary(4)
-# vecn = np.array([1, 1, 2, 1])
-# vecm = np.array([0, 2, 3, 0])
-# amplitude = [fock_amplitude(U, vecn, vecm, method=meth) for meth in
-#              ['ryser', 'ryser_gray', 'ryser_hyperrect', 'ryser_hyperrect_gray']]
-# print("Fock state amplitudes for different methods:", amplitude)
+    Parameters
+    ----------
+    phi : float
+        The phase associated with the beam splitter.
+    theta : float
+        The mixing angle of the beam splitter.
+    n_photons : int
+        The total number of photons.
+    sparse_tensor : bool, optional
+        If True, returns a sparse tensor. Default is True.
+    check : bool, optional
+        If True, performs all checks of the selected method. Default is True.
+    
+    Returns
+    -------
+    np.ndarray
+        A tensor of shape (M, M) where M is the number of Fock states with n_photons
+        in 2 modes, containing the amplitudes of transitions between all pairs of Fock states.
+    """
+    if sparse_tensor:
+        coords = []
+        data = []
 
-# phi = np.pi / 7
-# theta = np.pi / 6
-# vecn = np.array([3, 4, 1, 2])
-# vecm = np.array([2, 5, 1, 2])
-# amplitude_bs = fock_amplitude_bs(0, 1, phi, theta, vecn, vecm)
-# amplitude_bs_direct = fock_amplitude_ryser(T(0, 1, phi, theta, 4), vecn, vecm)
-# print("Fock state amplitude for beam splitter:", amplitude_bs)
-# print("Fock state amplitude for beam splitter (direct):", amplitude_bs_direct)
+        for n in range(n_photons + 1):
+            fock_basis = enumerate_fock(n, 2, check_value=check)
+            for invec in fock_basis:
+                for outvec in fock_basis:
+                    amp = fock_amplitude_bs(phi, theta, invec, outvec, check_photons=check)
+                    
+                    if abs(amp) > 1e-15:  # only store non-zero amplitudes
+                        # The index is the concatenation of invec and outvec
+                        coords.append(list(invec) + list(outvec))
+                        data.append(amp)
+        
+        # verify if coords is empty to avoid errors in sparse.COO
+        if not coords:
+            return sparse.COO([], [], shape=((n_photons + 1,) * 4))
+        
+        coords_array = np.array(coords).T
+        shape = (n_photons + 1,) * 4
+        return sparse.COO(coords_array, data, shape=shape)
+    else:
+        tensor = np.zeros((n_photons+1,) * 4, dtype=complex)
+        for n in range(n_photons + 1):
+            fock_basis = enumerate_fock(n, 2, check_value=check)
+            for invec in fock_basis:
+                for outvec in fock_basis:
+                    idx = tuple(invec) + tuple(outvec)
+                    tensor[idx] =\
+                    fock_amplitude_bs(phi, theta, invec, outvec, check_photons=check)
+    return tensor
+
+if __name__ == "__main__":
+    # tests
+    # U = np.eye(3)
+    # U = random_unitary(4)
+    # U = np.diag([1, 2, 3])
+    # tensor = fock_tensor(U, 3, method='ryser_gray', check=False)
+    # print(tensor)
+
+    # U = random_unitary(4)
+    # vecn = np.array([1, 1, 2, 1])
+    # vecm = np.array([0, 2, 3, 0])
+    # amplitude = [fock_amplitude(U, vecn, vecm, method=meth) for meth in
+    #              ['ryser', 'ryser_gray', 'ryser_hyperrect', 'ryser_hyperrect_gray']]
+    # print("Fock state amplitudes for different methods:", amplitude)
+
+    phi = np.pi / 7
+    theta = np.pi / 6
+    vecn = np.array([2, 0])
+    vecm = np.array([1, 1])
+    amplitude_bs = fock_amplitude_bs(phi, theta, vecn, vecm)
+    amplitude_bs_direct = fock_amplitude_ryser(T(0, 1, phi, theta, 2), vecn, vecm)
+    print("Fock state amplitude for beam splitter:", amplitude_bs)
+    print("Fock state amplitude for beam splitter (direct):", amplitude_bs_direct)

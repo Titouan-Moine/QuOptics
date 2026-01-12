@@ -396,20 +396,21 @@ def repeat_matrix(U, vecn, vecm):
 
     return repeated_U
 
-
-U = random_unitary(4)
-vecn = np.array([1,3,1,1])
-vecm = np.array([1,2,1,2])
-# vecn = np.array([1,3,1,1])
-# vecm = np.array([1,2,2,1])
-# U = np.array([[1, 0, 0, 0],
-#               [1, 0, 0, 0],
-#               [1, 0, 0, 0],
-#               [1, 0, 0, 0]])
-print(repeat_matrix(U, vecn, vecm))
-print("Permanent (Ryser) :", ryser(repeat_matrix(U, vecn, vecm)))
-print("Permanent (Ryser Gray) :", ryser_gray(repeat_matrix(U, vecn, vecm)))
-print("Permanent (Ryser Hyperrect) :", ryser_hyperrect(U, vecn, vecm))
-print("Permanent (Ryser Hyperrect Gray) :", ryser_hyperrect_gray(U, vecn, vecm))
-print("Permanent (Glynn) :", glynn(repeat_matrix(U, vecn, vecm)))
-print("Permanent (Glynn Gray) :", glynn_gray(repeat_matrix(U, vecn, vecm)))
+if __name__ == "__main__":
+    # tests
+    U = random_unitary(4)
+    vecn = np.array([1,3,1,1])
+    vecm = np.array([1,2,1,2])
+    # vecn = np.array([1,3,1,1])
+    # vecm = np.array([1,2,2,1])
+    # U = np.array([[1, 0, 0, 0],
+    #               [1, 0, 0, 0],
+    #               [1, 0, 0, 0],
+    #               [1, 0, 0, 0]])
+    print(repeat_matrix(U, vecn, vecm))
+    print("Permanent (Ryser) :", ryser(repeat_matrix(U, vecn, vecm)))
+    print("Permanent (Ryser Gray) :", ryser_gray(repeat_matrix(U, vecn, vecm)))
+    print("Permanent (Ryser Hyperrect) :", ryser_hyperrect(U, vecn, vecm))
+    print("Permanent (Ryser Hyperrect Gray) :", ryser_hyperrect_gray(U, vecn, vecm))
+    print("Permanent (Glynn) :", glynn(repeat_matrix(U, vecn, vecm)))
+    print("Permanent (Glynn Gray) :", glynn_gray(repeat_matrix(U, vecn, vecm)))
