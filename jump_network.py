@@ -2,6 +2,60 @@ import quimb as qb
 import quimb.tensor as qtn
 import numpy as np
 import math
+import numpy as np
+import math
+
+def beamsplitter_tensor(theta):
+    """
+    T[n1p, n2p, n1, n2] = <n1p, n2p | U_BS | n1, n2>
+    avec n_i in {0,1}
+    """
+    T = np.zeros((2, 2, 2, 2), dtype=np.float64)
+
+    c = np.cos(theta)
+    s = np.sin(theta)
+
+    for n1p in range(2):
+        for n2p in range(2):
+            for n1 in range(2):
+                for n2 in range(2):
+
+                    # Conservation du nombre total de photons
+                    if n1 + n2 != n1p + n2p:
+                        continue
+
+                    val = 0.0
+                    for k in range(3):  # petit car n<=1
+                        # arguments des factorielles
+                        a = k
+                        b = n1 - k
+                        c1 = n2p - k
+                        d = n2 - n2p + k
+
+                        if min(a, b, c1, d) < 0:
+                            continue
+
+                        coeff = (
+                            (-1)**(n2p - k)
+                            * math.sqrt(
+                                math.factorial(n1)
+                                * math.factorial(n2)
+                                * math.factorial(n1p)
+                                * math.factorial(n2p)
+                            )
+                            / (
+                                math.factorial(a)
+                                * math.factorial(b)
+                                * math.factorial(c1)
+                                * math.factorial(d)
+                            )
+                        )
+
+                        val += coeff * (c ** (n1 + n2p - 2*k)) * (s ** (n2 + n1p - 2*k))
+
+                    T[n1p, n2p, n1, n2] = val
+
+    return T
 
 def beamsplitter(m, n, phi, theta, N):
     """Constructs a beam splitter matrix acting on modes m and n.
