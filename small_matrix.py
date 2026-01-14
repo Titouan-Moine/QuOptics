@@ -29,3 +29,64 @@ def contract_circuit(output):
         U_total = U_gate @ U_total   # left → right (input → output)
 
     return U_total
+
+
+
+
+def test_empty_circuit():
+    dim = 4
+    full_decomposition = []
+    Dfinal = np.eye(dim, dtype=complex)
+
+    U = contract_circuit((full_decomposition, Dfinal))
+
+    assert np.allclose(U, np.eye(dim))
+def test_single_gate():
+    dim = 4
+    m, n = 1, 2
+    phi = 0.3
+    theta = 0.7
+
+    full_decomposition = [(m, n, phi, theta)]
+    Dfinal = np.eye(dim, dtype=complex)
+
+    U = contract_circuit((full_decomposition, Dfinal))
+    U_expected = T(m, n, phi, theta, dim)
+
+    assert np.allclose(U, U_expected)
+def test_two_gates_order():
+    dim = 5
+
+    gate1 = (0, 1, 0.2, 0.4)
+    gate2 = (2, 3, 0.5, 0.9)
+
+    full_decomposition = [gate1, gate2]
+    Dfinal = np.eye(dim, dtype=complex)
+
+    U = contract_circuit((full_decomposition, Dfinal))
+
+    U1 = T(*gate1, dim)
+    U2 = T(*gate2, dim)
+
+    U_expected = U2 @ U1
+
+    assert np.allclose(U, U_expected)
+def test_with_diagonal_final():
+    dim = 4
+
+    full_decomposition = [
+        (0, 1, 0.1, 0.3),
+        (1, 2, 0.4, 0.8),
+        (2, 3, 0.6, 0.2),
+    ]
+
+    phases = np.exp(1j * np.array([0.2, 1.1, -0.4, 0.7]))
+    Dfinal = np.diag(phases)
+
+    U = contract_circuit((full_decomposition, Dfinal))
+
+    U_expected = np.eye(dim, dtype=complex)
+    for g in full_decomposition:
+        U_expected = T(*g, dim) @ U_expected
+
+    assert np.allclose(U, U_expected)
