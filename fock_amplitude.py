@@ -69,6 +69,8 @@ def fock_amplitude_ryser(U, vecn, vecm, check_photons=True):
     if check_photons:
         if vecn.sum() != vecm.sum():
             raise ValueError("The sum of input and output occupation numbers must be equal.")
+    if vecn.sum() == 0:
+        return 1.0 + 0.0j  # amplitude for vacuum state
 
     log_pref = 0.5 * (np.sum(gammaln(vecn + 1)) + np.sum(gammaln(vecm + 1)))
     pref = np.exp(log_pref)
@@ -97,6 +99,8 @@ def fock_amplitude_ryser_gray(U, vecn, vecm, check_photons=True):
     if check_photons:
         if vecn.sum() != vecm.sum():
             raise ValueError("The sum of input and output occupation numbers must be equal.")
+    if vecn.sum() == 0:
+        return 1.0 + 0.0j  # amplitude for vacuum state
 
     log_pref = 0.5 * (np.sum(gammaln(vecn + 1)) + np.sum(gammaln(vecm + 1)))
     pref = np.exp(log_pref)
@@ -125,6 +129,8 @@ def fock_amplitude_ryser_hyperrect(U, vecn, vecm, check_photons=True):
     if check_photons:
         if vecn.sum() != vecm.sum():
             raise ValueError("The sum of input and output occupation numbers must be equal.")
+    if vecn.sum() == 0:
+        return 1.0 + 0.0j  # amplitude for vacuum state
 
     log_pref = 0.5 * (np.sum(gammaln(vecn + 1)) + np.sum(gammaln(vecm + 1)))
     pref = np.exp(log_pref)
@@ -153,6 +159,8 @@ def fock_amplitude_ryser_hyperrect_gray(U, vecn, vecm, check_photons=True):
     if check_photons:
         if vecn.sum() != vecm.sum():
             raise ValueError("The sum of input and output occupation numbers must be equal.")
+    if vecn.sum() == 0:
+        return 1.0 + 0.0j  # amplitude for vacuum state
 
     log_pref = 0.5 * (np.sum(gammaln(vecn + 1)) + np.sum(gammaln(vecm + 1)))
     pref = np.exp(log_pref)
@@ -181,6 +189,8 @@ def fock_amplitude_glynn(U, vecn, vecm, check_photons=True):
     if check_photons:
         if vecn.sum() != vecm.sum():
             raise ValueError("The sum of input and output occupation numbers must be equal.")
+    if vecn.sum() == 0:
+        return 1.0 + 0.0j  # amplitude for vacuum state
 
     log_pref = 0.5 * (np.sum(gammaln(vecn + 1)) + np.sum(gammaln(vecm + 1)))
     pref = np.exp(log_pref)
@@ -209,6 +219,8 @@ def fock_amplitude_glynn_gray(U, vecn, vecm, check_photons=True):
     if check_photons:
         if vecn.sum() != vecm.sum():
             raise ValueError("The sum of input and output occupation numbers must be equal.")
+    if vecn.sum() == 0:
+        return 1.0 + 0.0j  # amplitude for vacuum state
 
     log_pref = 0.5 * (np.sum(gammaln(vecn + 1)) + np.sum(gammaln(vecm + 1)))
     pref = np.exp(log_pref)
@@ -515,9 +527,73 @@ if __name__ == "__main__":
 
     phi = np.pi / 7
     theta = np.pi / 6
-    vecn = np.array([2, 0])
-    vecm = np.array([1, 1])
+    vecn = np.array([1, 0])
+    vecm = np.array([0, 1])
     amplitude_bs = fock_amplitude_bs(phi, theta, vecn, vecm)
     amplitude_bs_direct = fock_amplitude_ryser(T(0, 1, phi, theta, 2), vecn, vecm)
     print("Fock state amplitude for beam splitter:", amplitude_bs)
     print("Fock state amplitude for beam splitter (direct):", amplitude_bs_direct)
+    bs_tensor = fock_tensor_bs(phi, theta, 2, sparse_tensor=False)
+    print("Fock state amplitude tensor for beam splitter:\n", bs_tensor)
+    bs_tensor_direct = fock_tensor(T(0, 1, phi, theta, 2), 2, sparse_tensor=False)
+    print("Fock state amplitude tensor for beam splitter (direct):\n", bs_tensor_direct)
+    print("Difference between tensors:", np.max(np.abs(bs_tensor - bs_tensor_direct)))
+    print("\n" + "="*60)
+    print("COMPARISON TEST: bs_tensor vs bs_tensor_direct")
+    print("="*60)
+    
+    # Tolérance pour la comparaison
+    atol = 1e-10  # tolérance absolue
+    rtol = 1e-8   # tolérance relative
+    
+    # Test avec numpy.allclose
+    are_close = np.allclose(bs_tensor, bs_tensor_direct, atol=atol, rtol=rtol)
+    print(f"\nTensors are close (atol={atol}, rtol={rtol}): {are_close}")
+    
+    if are_close:
+        print("✅ Les deux tenseurs sont presque égaux !")
+    else:
+        print("❌ Les deux tenseurs diffèrent. Analyse des différences:")
+        
+        # Calculer les différences
+        diff = np.abs(bs_tensor - bs_tensor_direct)
+        max_diff = np.max(diff)
+        mean_diff = np.mean(diff)
+        
+        print(f"\n  Différence maximale: {max_diff:.2e}")
+        print(f"  Différence moyenne: {mean_diff:.2e}")
+        print(f"  Nombre d'éléments différents (>atol): {np.sum(diff > atol)}")
+        print(f"  Nombre total d'éléments: {diff.size}")
+        
+        # Trouver les indices où les tenseurs diffèrent significativement
+        diff_indices = np.argwhere(diff > atol)
+        
+        print(f"\n  Indices où les tenseurs diffèrent (diff > {atol}):")
+        print(f"  {'Index':<20} {'bs_tensor':<25} {'bs_tensor_direct':<25} {'Diff':<15}")
+        print("  " + "-"*85)
+        
+        for idx in diff_indices[:20]:  # Limiter à 20 pour la lisibilité
+            idx_tuple = tuple(idx)
+            val1 = bs_tensor[idx_tuple]
+            val2 = bs_tensor_direct[idx_tuple]
+            d = diff[idx_tuple]
+            print(f"  {str(idx_tuple):<20} {val1:<25} {val2:<25} {d:<15.2e}")
+        
+        if len(diff_indices) > 20:
+            print(f"  ... et {len(diff_indices) - 20} autres différences")
+        
+        # Analyser par nombre de photons
+        print("\n  Analyse par nombre de photons (somme des indices d'entrée):")
+        n_photons_max = bs_tensor.shape[0] - 1
+        for n in range(n_photons_max + 1):
+            # Trouver les indices où sum(invec) = n
+            mask = np.zeros_like(diff, dtype=bool)
+            for idx in np.ndindex(bs_tensor.shape):
+                invec = idx[:2]
+                if sum(invec) == n:
+                    mask[idx] = True
+            
+            if np.any(mask):
+                max_diff_n = np.max(diff[mask])
+                num_diff_n = np.sum(diff[mask] > atol)
+                print(f"    n={n} photons: max_diff={max_diff_n:.2e}, nb_diff={num_diff_n}")

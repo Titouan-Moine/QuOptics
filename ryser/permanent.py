@@ -384,15 +384,23 @@ def repeat_matrix(U, vecn, vecm):
     np.ndarray
         The constructed repeating sub-matrix.
     """
-    rows = []
-    for i in range(U.shape[0]):
-        rows.extend([U[i, :]] * vecn[i])
-    repeated_U = np.array(rows)
+    # N = U.shape[0]
+    # M = U.shape[1]
+    # if N != M:
+    #     raise ValueError("U must be a square matrix")
+    # rows = []
+    # for i in range(U.shape[0]):
+    #     rows.extend([U[i, :]] * vecn[i])
+    # repeated_U = np.array(rows)
+    # print(repeated_U.shape)
 
-    cols = []
-    for j in range(U.shape[1]):
-        cols.extend([repeated_U[:, j]] * vecm[j])
-    repeated_U = np.array(cols).T
+    # cols = []
+    # for j in range(U.shape[1]):
+    #     cols.extend([repeated_U[:, j]] * vecm[j])
+    # repeated_U = np.array(cols).T
+    
+    repeated_U = np.repeat(U, vecn, axis=0)
+    repeated_U = np.repeat(repeated_U, vecm, axis=1)
 
     return repeated_U
 
