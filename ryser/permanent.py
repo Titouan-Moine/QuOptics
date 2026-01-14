@@ -384,32 +384,41 @@ def repeat_matrix(U, vecn, vecm):
     np.ndarray
         The constructed repeating sub-matrix.
     """
-    rows = []
-    for i in range(U.shape[0]):
-        rows.extend([U[i, :]] * vecn[i])
-    repeated_U = np.array(rows)
+    # N = U.shape[0]
+    # M = U.shape[1]
+    # if N != M:
+    #     raise ValueError("U must be a square matrix")
+    # rows = []
+    # for i in range(U.shape[0]):
+    #     rows.extend([U[i, :]] * vecn[i])
+    # repeated_U = np.array(rows)
+    # print(repeated_U.shape)
 
-    cols = []
-    for j in range(U.shape[1]):
-        cols.extend([repeated_U[:, j]] * vecm[j])
-    repeated_U = np.array(cols).T
+    # cols = []
+    # for j in range(U.shape[1]):
+    #     cols.extend([repeated_U[:, j]] * vecm[j])
+    # repeated_U = np.array(cols).T
+    
+    repeated_U = np.repeat(U, vecn, axis=0)
+    repeated_U = np.repeat(repeated_U, vecm, axis=1)
 
     return repeated_U
 
-
-U = random_unitary(4)
-vecn = np.array([1,3,1,1])
-vecm = np.array([1,2,1,2])
-# vecn = np.array([1,3,1,1])
-# vecm = np.array([1,2,2,1])
-# U = np.array([[1, 0, 0, 0],
-#               [1, 0, 0, 0],
-#               [1, 0, 0, 0],
-#               [1, 0, 0, 0]])
-print(repeat_matrix(U, vecn, vecm))
-print("Permanent (Ryser) :", ryser(repeat_matrix(U, vecn, vecm)))
-print("Permanent (Ryser Gray) :", ryser_gray(repeat_matrix(U, vecn, vecm)))
-print("Permanent (Ryser Hyperrect) :", ryser_hyperrect(U, vecn, vecm))
-print("Permanent (Ryser Hyperrect Gray) :", ryser_hyperrect_gray(U, vecn, vecm))
-print("Permanent (Glynn) :", glynn(repeat_matrix(U, vecn, vecm)))
-print("Permanent (Glynn Gray) :", glynn_gray(repeat_matrix(U, vecn, vecm)))
+if __name__ == "__main__":
+    # tests
+    U = random_unitary(4)
+    vecn = np.array([1,3,1,1])
+    vecm = np.array([1,2,1,2])
+    # vecn = np.array([1,3,1,1])
+    # vecm = np.array([1,2,2,1])
+    # U = np.array([[1, 0, 0, 0],
+    #               [1, 0, 0, 0],
+    #               [1, 0, 0, 0],
+    #               [1, 0, 0, 0]])
+    print(repeat_matrix(U, vecn, vecm))
+    print("Permanent (Ryser) :", ryser(repeat_matrix(U, vecn, vecm)))
+    print("Permanent (Ryser Gray) :", ryser_gray(repeat_matrix(U, vecn, vecm)))
+    print("Permanent (Ryser Hyperrect) :", ryser_hyperrect(U, vecn, vecm))
+    print("Permanent (Ryser Hyperrect Gray) :", ryser_hyperrect_gray(U, vecn, vecm))
+    print("Permanent (Glynn) :", glynn(repeat_matrix(U, vecn, vecm)))
+    print("Permanent (Glynn Gray) :", glynn_gray(repeat_matrix(U, vecn, vecm)))
