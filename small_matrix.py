@@ -1,34 +1,7 @@
 import numpy as np
+from clements_scheme/clements_scheme import T
 
-def embed_gate(local_matrix, modes, L):
-    """
-    Embed a local k×k gate into an L×L identity matrix.
-
-    Parameters
-    ----------
-    local_matrix : np.ndarray
-        k×k matrix acting on selected modes
-    modes : list[int]
-        Indices of modes the gate acts on
-    L : int
-        Total number of modes
-
-    Returns
-    -------
-    np.ndarray
-        L×L embedded matrix
-    """
-    U = np.eye(L, dtype=complex)
-    modes = list(modes)
-
-    for i, mi in enumerate(modes):
-        for j, mj in enumerate(modes):
-            U[mi, mj] = local_matrix[i, j]
-
-    return U
-
-
-def contract_circuit(circuit, L):
+def contract_circuit(output):
     """
     Contract a linear optics circuit into a single L×L matrix.
 
@@ -46,10 +19,13 @@ def contract_circuit(circuit, L):
     np.ndarray
         Total circuit transformation
     """
-    U_total = np.eye(L, dtype=complex)
+    full_decomposition=output[0]
+    Dfinal=output[1]
+    dim = Dfinal.shape[0]   # nombre de lignes
+    U_total = np.eye(dim, dtype=complex)
 
-    for gate in circuit:
-        U_gate = embed_gate(gate["matrix"], gate["modes"], L)
+    for element in full_decomposition:
+        U_gate= T(element[0],element[1],element[2],element[3],dim)
         U_total = U_gate @ U_total   # left → right (input → output)
 
     return U_total
