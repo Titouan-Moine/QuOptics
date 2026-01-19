@@ -1,5 +1,5 @@
 import numpy as np
-from clements_scheme/clements_scheme import T
+from clements_scheme.clements_scheme import T
 
 def contract_circuit(output):
     """
