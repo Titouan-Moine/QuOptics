@@ -1,5 +1,6 @@
 import numpy as np
 from clements_scheme.clements_scheme import T
+from fock_amplitude import fock_tensor
 
 def contract_circuit(output):
     """
@@ -30,8 +31,29 @@ def contract_circuit(output):
 
     return U_total
 
+def contract_circuit_then_fock(output, n_photons):
+    """
+    Contract a linear optics circuit into a single L×L matrix,
+    then compute the Fock state amplitude tensor for n_photons.
 
+    Parameters
+    ----------
+    circuit : list[dict]
+        Each dict has keys:
+            - 'matrix': local gate
+            - 'modes': target modes
+    L : int
+        Total number of modes
+    n_photons : int
+        Number of photons
 
+    Returns
+    -------
+    np.ndarray
+        The Fock state amplitude tensor.
+    """
+    U_total = contract_circuit(output)
+    return fock_tensor(U_total, n_photons, method='glynn_gray')
 
 def test_empty_circuit():
     dim = 4

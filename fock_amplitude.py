@@ -405,7 +405,7 @@ def fock_tensor(U, n_photons, sparse_tensor=True, method='ryser_gray', check=Fal
     sparse_tensor : bool, optional
         If True, returns a sparse tensor. Default is True.
     method : str, optional
-        The method to use for computation. Options are 'ryser', 'ryser_gray',
+        The method to use for computation. Options are 'ryser', 'ryser_gray', 'glynn', 'glynn_gray',
         'ryser_hyperrect', 'ryser_hyperrect_gray'. Default is 'ryser'.
     check : bool, optional
         If True, performs all checks of the selected method. Default is True.
