@@ -6,6 +6,8 @@ import warnings
 import numpy as np
 from scipy.special import gammaln
 import sparse
+import quimb as qb
+import quimb.tensor as qtn
 # from sympy.physics.quantum.spin import Rotation
 from ryser.permanent import ryser, ryser_gray, ryser_hyperrect, ryser_hyperrect_gray, glynn, glynn_gray, repeat_matrix
 from rnd_module import random_unitary
@@ -344,7 +346,7 @@ def fock_amplitude_multi_ps(phi, vecn, vecm, check_modes=True, check_photons=Tru
 
     return amplitude
 
-def fock_amplitude(U, vecn, vecm, method='ryser_gray', check=True):
+def fock_amplitude(U, vecn, vecm, method='ryser_gray', check=False):
     """Compute the Fock state amplitude using the specified method.
 
     Parameters
@@ -389,7 +391,7 @@ def fock_amplitude(U, vecn, vecm, method='ryser_gray', check=True):
                          try 'ryser', 'ryser_gray', 'ryser_hyperrect',\
                          'ryser_hyperrect_gray', 'glynn', or 'glynn_gray'.")
 
-def fock_tensor(U, n_photons, sparse_tensor=True, method='ryser_gray', check=True):
+def fock_tensor(U, n_photons, sparse_tensor=True, method='ryser_gray', check=False):
     """Compute the Fock state amplitude tensor for all possible input and output Fock states
     with a total of n_photons. In order to have a coherent tensor structure, it is filled with 0s
     for irrelevant transitions (when there are more than n_photons photons).
@@ -454,7 +456,7 @@ def fock_tensor(U, n_photons, sparse_tensor=True, method='ryser_gray', check=Tru
                     tensor[index_in + index_out] = fock_amplitude(U, invec, outvec, method=method, check=check)
     return tensor
 
-def fock_tensor_bs(phi, theta, n_photons, sparse_tensor=True, check=True):
+def fock_tensor_bs(phi, theta, n_photons, sparse_tensor=True, check=False):
     """Compute the Fock state amplitude tensor for all possible input and output Fock states
     with a total of n_photons for a beam splitter.
 
@@ -510,6 +512,171 @@ def fock_tensor_bs(phi, theta, n_photons, sparse_tensor=True, check=True):
                     fock_amplitude_bs(phi, theta, invec, outvec, check_photons=check)
     return tensor
 
+def fock_tensor_ps(phi, n_photons, sparse_tensor=True, check=False):
+    """Compute the Fock state amplitude tensor for all possible input and output Fock states
+    with a total of n_photons for a phase shifter.
+
+    Parameters
+    ----------
+    phi : float
+        The phase associated with the phase shifter.
+    n_photons : int
+        The total number of photons.
+    sparse_tensor : bool, optional
+        If True, returns a sparse tensor. Default is True.
+    check : bool, optional
+        If True, performs all checks of the selected method. Default is True.
+    
+    Returns
+    -------
+    np.ndarray
+        A tensor of shape (n_photons+1, n_photons+1), containing the amplitudes of
+        transitions between all single mode of Fock states.
+    """
+    k_indices = np.arange(n_photons + 1)
+    amplitudes = np.exp(1j * k_indices * phi)
+
+    if sparse_tensor:
+        coords = np.vstack([k_indices, k_indices])
+        return sp.COO(coords, amplitudes, shape=(n_photons + 1, n_photons + 1))
+    else:
+        return np.diag(amplitudes)
+
+def fock_tensor_multi_ps(phi_list, n_photons, sparse_tensor=True):
+    """
+    Generates a rank-2p Fock space tensor for a multi-mode Phase Shifter across p modes.
+
+    The Phase Shifter operator is diagonal in the Fock basis. For an input state
+    |n1, n2, ..., np>, it applies a total phase of exp(i * sum(nj * phij)).
+
+    Single PS tensors are generally preferred.
+
+    Parameters
+    ----------
+    phi_list : list or np.ndarray
+        List of phase shift angles [phi_1, phi_2, ..., phi_p] for the p modes.
+    n_photons : int
+        Maximum total number of photons (truncation level).
+    sparse_tensor : bool, optional
+        If True, returns a sparse.COO tensor. Default is True.
+
+    Returns
+    -------
+    sp.COO or np.ndarray
+        A tensor of shape (n_photons + 1, ..., n_photons + 1) with 2p indices.
+        Indices are ordered as (in_0, ..., in_p-1, out_0, ..., out_p-1).
+    """
+    p = len(phi_list)
+    phi_list = np.array(phi_list)
+    
+    # Shape of the tensor: (n+1) repeated 2*p times
+    # p legs for input and p legs for output
+    shape = (n_photons + 1,) * (2 * p)
+    
+    coords = []
+    data = []
+
+    # Iterate through each photon sector from 0 to n_photons
+    # to respect the global photon number conservation (sum nj <= n_photons)
+    for n in range(n_photons + 1):
+        # enumerate_fock(n, p) generates all Fock states with total n photons in p modes
+        fock_basis = enumerate_fock(n, p) 
+        
+        for vec in fock_basis:
+            # vec is a tuple/list of occupation numbers: (n_1, n_2, ..., n_p)
+            vec_np = np.array(vec)
+            
+            # The total phase is the dot product of occupations and phase angles
+            # For the vacuum (0,0,...), total_phase is 0, so amplitude is exp(0) = 1
+            total_phase = np.sum(vec_np * phi_list)
+            amplitude = np.exp(1j * total_phase)
+            
+            # Since the operator is diagonal, input indices == output indices
+            # The full index is the concatenation: [in_1, ..., in_p, out_1, ..., out_p]
+            full_idx = list(vec) + list(vec)
+            coords.append(full_idx)
+            data.append(amplitude)
+
+    if sparse_tensor:
+        # Construct the sparse tensor in Coordinate (COO) format
+        # coords needs to be transposed to shape (2*p, number_of_non_zero_elements)
+        return sparse.COO(np.array(coords).T, data, shape=shape)
+    else:
+        # Construct a standard dense NumPy array
+        tensor = np.zeros(shape, dtype=complex)
+        for c, d in zip(coords, data):
+            tensor[tuple(c)] = d
+        return tensor
+
+def clements_to_fock_network(BS_list, D, n_photons, sparse_tensor=True, check=False):
+    """Construct the tensor network (with quimb) of a clements scheme in the Fock basis.
+    
+    Parameters
+    ----------
+    BS_list : list of tuples
+        A list of beam splitter parameters (phi, theta) for each beam splitter in the Clements scheme.
+    D : np.ndarray
+        A diagonal unitary matrix representing the phase shifts in the Clements scheme.
+    n_photons : int
+        The total number of photons.
+    sparse_tensor : bool, optional
+        If True, returns a sparse tensor. Default is True.
+    check : bool, optional
+        If True, performs all checks of the selected method. Default is True.
+    
+    Returns
+    -------
+    np.ndarray
+        The constructed tensor network in the Fock basis.
+    """
+    
+    N = D.shape[0]
+    tensors = []
+
+    # Beam splitters
+    for (mode1, mode2), (phi, theta) in BS_list:
+        bs_tensor = fock_tensor_bs(phi, theta, n_photons, sparse_tensor=sparse_tensor, check=check)
+        bs_qtn = qtn.Tensor(bs_tensor, inds=(f'in_{mode1}', f'in_{mode2}', f'out_{mode1}', f'out_{mode2}'))
+        tensors.append(bs_qtn)
+
+    # Phase shifts
+    for mode in range(N):
+        phi = np.angle(D[mode, mode])
+        ps_tensor = fock_tensor_ps(phi, n_photons, sparse_tensor=sparse_tensor, check=check)
+        ps_qtn = qtn.Tensor(ps_tensor, inds=(f'in_{mode}', f'out_{mode}'))
+        tensors.append(ps_qtn)
+
+    # Create the tensor network
+    tn = qtn.TensorNetwork(tensors)
+
+    return tn
+
+def clements_fock_tensor(BS_list, D, n_photons, sparse_tensor=True, check=False):
+    """Compute the Fock state amplitude tensor for a Clements scheme.
+
+    Parameters
+    ----------
+    BS_list : list of tuples
+        A list of beam splitter parameters (phi, theta) for each beam splitter in the Clements scheme.
+    D : np.ndarray
+        A diagonal unitary matrix representing the phase shifts in the Clements scheme.
+    n_photons : int
+        The total number of photons.
+    sparse_tensor : bool, optional
+        If True, returns a sparse tensor. Default is True.
+    check : bool, optional
+        If True, performs all checks of the selected method. Default is True.
+    
+    Returns
+    -------
+    np.ndarray
+        The Fock state amplitude tensor for the Clements scheme.
+    """
+    tn = clements_to_fock_network(BS_list, D, n_photons, sparse_tensor=sparse_tensor, check=check)
+    result = tn.contract(all, optimize='greedy')
+    return result.data
+    
+
 if __name__ == "__main__":
     # tests
     # U = np.eye(3)
@@ -525,8 +692,8 @@ if __name__ == "__main__":
     #              ['ryser', 'ryser_gray', 'ryser_hyperrect', 'ryser_hyperrect_gray']]
     # print("Fock state amplitudes for different methods:", amplitude)
 
-    phi = np.pi / 7
-    theta = np.pi / 6
+    phi = 0*np.pi / 7
+    theta = np.pi / 4
     vecn = np.array([1, 0])
     vecm = np.array([0, 1])
     amplitude_bs = fock_amplitude_bs(phi, theta, vecn, vecm)
@@ -597,3 +764,5 @@ if __name__ == "__main__":
                 max_diff_n = np.max(diff[mask])
                 num_diff_n = np.sum(diff[mask] > atol)
                 print(f"    n={n} photons: max_diff={max_diff_n:.2e}, nb_diff={num_diff_n}")
+    
+    
