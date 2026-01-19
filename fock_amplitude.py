@@ -11,7 +11,7 @@ import quimb.tensor as qtn
 # from sympy.physics.quantum.spin import Rotation
 from ryser.permanent import ryser, ryser_gray, ryser_hyperrect, ryser_hyperrect_gray, glynn, glynn_gray, repeat_matrix
 from rnd_module import random_unitary
-from clements_scheme.clements_scheme import T
+from clements_scheme.clements_scheme import T, full_clements
 
 def enumerate_fock(n, N, indexed=False, check_value=True):
     """Generate all Fock states of N modes with a total of n photons
@@ -538,7 +538,7 @@ def fock_tensor_ps(phi, n_photons, sparse_tensor=True, check=False):
 
     if sparse_tensor:
         coords = np.vstack([k_indices, k_indices])
-        return sp.COO(coords, amplitudes, shape=(n_photons + 1, n_photons + 1))
+        return sparse.COO(coords, amplitudes, shape=(n_photons + 1, n_photons + 1))
     else:
         return np.diag(amplitudes)
 
@@ -634,7 +634,7 @@ def clements_to_fock_network(BS_list, D, n_photons, sparse_tensor=True, check=Fa
     tensors = []
 
     # Beam splitters
-    for (mode1, mode2), (phi, theta) in BS_list:
+    for (mode1, mode2, phi, theta) in BS_list:
         bs_tensor = fock_tensor_bs(phi, theta, n_photons, sparse_tensor=sparse_tensor, check=check)
         bs_qtn = qtn.Tensor(bs_tensor, inds=(f'in_{mode1}', f'in_{mode2}', f'out_{mode1}', f'out_{mode2}'))
         tensors.append(bs_qtn)
@@ -651,7 +651,7 @@ def clements_to_fock_network(BS_list, D, n_photons, sparse_tensor=True, check=Fa
 
     return tn
 
-def clements_fock_tensor(BS_list, D, n_photons, sparse_tensor=True, check=False):
+def clements_fock_tensor(BS_list, D, n_photons=None, sparse_tensor=True, check=False):
     """Compute the Fock state amplitude tensor for a Clements scheme.
 
     Parameters
@@ -672,8 +672,12 @@ def clements_fock_tensor(BS_list, D, n_photons, sparse_tensor=True, check=False)
     np.ndarray
         The Fock state amplitude tensor for the Clements scheme.
     """
+    if n_photons is None:
+        n_photons = D.shape[0]  # default to number of modes
+    
     tn = clements_to_fock_network(BS_list, D, n_photons, sparse_tensor=sparse_tensor, check=check)
-    result = tn.contract(all, optimize='greedy')
+    output_inds = [f'in_{mode}' for mode in range(N)] + [f'out_{mode}' for mode in range(N)]
+    result = tn.contract(all, output_inds=output_inds, optimize='greedy')
     return result.data
     
 
@@ -765,4 +769,19 @@ if __name__ == "__main__":
                 num_diff_n = np.sum(diff[mask] > atol)
                 print(f"    n={n} photons: max_diff={max_diff_n:.2e}, nb_diff={num_diff_n}")
     
+    # tests for clements scheme quimb network and contraction
     
+    N = 4
+    U = random_unitary(N)
+    BS_list, D = full_clements(U)
+    n_photons = 4
+    tn = clements_to_fock_network(BS_list, D, n_photons)
+    output_inds = [f'in_{mode}' for mode in range(N)] + [f'out_{mode}' for mode in range(N)]
+    result = tn.contract(all, output_inds=output_inds, optimize='greedy')
+    clements_tensor = clements_fock_tensor(BS_list, D, n_photons)
+    print("\n" + "="*60)
+    print("COMPARISON TEST: clements_tensor vs result.data")
+    print("="*60)
+    #are_close = np.allclose(clements_tensor, result.data, atol=1e-10, rtol=1e-8)
+    #print(f"\nTensors are close: {are_close}")
+    print(clements_tensor)
