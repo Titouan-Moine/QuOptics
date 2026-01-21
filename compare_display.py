@@ -17,12 +17,7 @@ def transformationB(U):
 def main():
   max_size=10
   circuit_sizes = [i for i in range (2,max_size+1)]  # Vary the circuit sizes
-  #num_trials_per_size = 10  # Number of trials for each size to get average execution time
-
-  # Initialize storage for results
-  results_transfo_A = {'sizes': [], 'times': [], 'errors': []}
-  results_transfo_B = {'sizes': [], 'times': [], 'errors': []}
-
+  
   times_A = []
   times_B = []
 
@@ -49,8 +44,18 @@ def main():
       elapsed_time_B = time.time() - start_time
       times_B.append(elapsed_time_B)
           
-  plt.plot(circuit_sizes,times_A, color='blue')
-  plt.plot(circuit_sizes,times_B, color='red')
+  plt.figure(figsize=(9,6))
+  plt.plot(circuit_sizes, times_A, color='blue', marker='o', linestyle='-', label='produit matriciel puis passage dans fock')
+  plt.plot(circuit_sizes, times_B, color='red',  marker='s', linestyle='--', label='passage dans fock puis contraction de tenseurs')
+
+  plt.xlabel('Circuit size (number of modes)')
+  plt.ylabel('Execution time (s)')
+  plt.title('Benchmark: Transformation execution time vs circuit size')
+  plt.grid(alpha=0.3)
+  plt.legend()
+
+  
+  plt.tight_layout()
   plt.show()
 
 main()
