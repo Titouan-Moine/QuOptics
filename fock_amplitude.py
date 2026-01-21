@@ -678,7 +678,7 @@ def clements_fock_tensor(BS_list, D, n_photons=None, sparse_tensor=True, check=F
 
     tn = clements_to_fock_network(BS_list, D, n_photons, sparse_tensor=sparse_tensor, check=check)
     output_inds = [f'in_{mode}' for mode in range(N)] + [f'out_{mode}' for mode in range(N)]
-    result = tn.contract(all, output_inds=output_inds, optimize='greedy')
+    result = tn.contract(all, output_inds=output_inds, optimize='greedy', backend='sparse')
     return result.data
     
 
