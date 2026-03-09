@@ -7,11 +7,13 @@ import numpy as np
 from scipy.special import gammaln
 import sparse
 import quimb as qb
+import opt_einsum as oe
 import quimb.tensor as qtn
 # from sympy.physics.quantum.spin import Rotation
 from ryser.permanent import ryser, ryser_gray, ryser_hyperrect, ryser_hyperrect_gray, glynn, glynn_gray, repeat_matrix
 from rnd_module import random_unitary
 from clements_scheme.clements_scheme import T, full_clements
+from TeNCo.sparse_backend import sparse_tensordot_via_scipy
 
 def enumerate_fock(n, N, indexed=False, check_value=True):
     """Generate all Fock states of N modes with a total of n photons
@@ -680,7 +682,8 @@ def clements_fock_tensor(BS_list, D, n_photons=None, sparse_tensor=True, check=F
     output_inds = [f'in_{mode}' for mode in range(N)] + [f'out_{mode}' for mode in range(N)]
     result = tn.contract(all, output_inds=output_inds, optimize='greedy', backend='sparse')
     return result.data
-    
+
+
 
 if __name__ == "__main__":
     # tests
