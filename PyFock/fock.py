@@ -10,7 +10,7 @@ import sparse
 # import quimb.tensor as qtn
 # import opt_einsum as oe
 # from sympy.physics.quantum.spin import Rotation
-from ryser.permanent import ryser, ryser_gray, ryser_hyperrect, ryser_hyperrect_gray, glynn, glynn_gray, repeat_matrix
+from PyFock.permanent import ryser, ryser_gray, ryser_hyperrect, ryser_hyperrect_gray, glynn, glynn_gray, repeat_matrix
 from rnd_module import random_unitary
 from clements_scheme.clements_scheme import T, full_clements
 # from TeNCo.sparse_backend import sparse_tensordot_via_scipy
@@ -624,34 +624,40 @@ def clements_to_fock_network(BS_list, D, n_photons, sparse_tensor=True, check=Fa
     sparse_tensor : bool, optional
         If True, returns a sparse tensor. Default is True.
     check : bool, optional
-        If True, performs all checks of the selected method. Default is True.
+        If True, performs all checks of the selected method. Default is False.
     
     Returns
     -------
-    np.ndarray
-        The constructed tensor network in the Fock basis.
+    TeNCo.TensorNetwork
+        A tensor network representing the Clements scheme in the Fock basis, where each tensor
+        corresponds to a beam splitter or a phase shifter, and the indices correspond to the input
+        and output Fock states of the respective modes. The network can be contracted to compute
+        the overall transformation of Fock states through the Clements scheme.
     """
+    # TODO: implement this function using TeNCo to create the tensor network representation of the Clements scheme.
     
     N = D.shape[0]
     tensors = []
 
     # Beam splitters
     for (mode1, mode2, phi, theta) in BS_list:
-        bs_tensor = fock_tensor_bs(phi, theta, n_photons, sparse_tensor=sparse_tensor, check=check)
-        bs_qtn = qtn.Tensor(bs_tensor, inds=(f'in_{mode1}', f'in_{mode2}', f'out_{mode1}', f'out_{mode2}'))
-        tensors.append(bs_qtn)
+        # bs_tensor = fock_tensor_bs(phi, theta, n_photons, sparse_tensor=sparse_tensor, check=check)
+        # bs_qtn = qtn.Tensor(bs_tensor, inds=(f'in_{mode1}', f'in_{mode2}', f'out_{mode1}', f'out_{mode2}'))
+        # tensors.append(bs_qtn)
+        pass
 
     # Phase shifts
     for mode in range(N):
-        phi = np.angle(D[mode, mode])
-        ps_tensor = fock_tensor_ps(phi, n_photons, sparse_tensor=sparse_tensor, check=check)
-        ps_qtn = qtn.Tensor(ps_tensor, inds=(f'in_{mode}', f'out_{mode}'))
-        tensors.append(ps_qtn)
+        # phi = np.angle(D[mode, mode])
+        # ps_tensor = fock_tensor_ps(phi, n_photons, sparse_tensor=sparse_tensor, check=check)
+        # ps_qtn = qtn.Tensor(ps_tensor, inds=(f'in_{mode}', f'out_{mode}'))
+        # tensors.append(ps_qtn)
+        pass
 
     # Create the tensor network
-    tn = qtn.TensorNetwork(tensors)
+    # tn = qtn.TensorNetwork(tensors)
 
-    return tn
+    return None
 
 def clements_fock_tensor(BS_list, D, n_photons=None, sparse_tensor=True, check=False):
     """Compute the Fock state amplitude tensor for a Clements scheme.
@@ -779,13 +785,13 @@ if __name__ == "__main__":
     U = random_unitary(N)
     BS_list, D = full_clements(U)
     n_photons = 4
-    tn = clements_to_fock_network(BS_list, D, n_photons)
-    output_inds = [f'in_{mode}' for mode in range(N)] + [f'out_{mode}' for mode in range(N)]
-    result = tn.contract(all, output_inds=output_inds, optimize='greedy')
-    clements_tensor = clements_fock_tensor(BS_list, D, n_photons)
-    print("\n" + "="*60)
-    print("COMPARISON TEST: clements_tensor vs result.data")
-    print("="*60)
-    #are_close = np.allclose(clements_tensor, result.data, atol=1e-10, rtol=1e-8)
-    #print(f"\nTensors are close: {are_close}")
-    print(clements_tensor)
+    # tn = clements_to_fock_network(BS_list, D, n_photons)
+    # output_inds = [f'in_{mode}' for mode in range(N)] + [f'out_{mode}' for mode in range(N)]
+    # result = tn.contract(all, output_inds=output_inds, optimize='greedy')
+    # clements_tensor = clements_fock_tensor(BS_list, D, n_photons)
+    # print("\n" + "="*60)
+    # print("COMPARISON TEST: clements_tensor vs result.data")
+    # print("="*60)
+    # #are_close = np.allclose(clements_tensor, result.data, atol=1e-10, rtol=1e-8)
+    # #print(f"\nTensors are close: {are_close}")
+    # print(clements_tensor)

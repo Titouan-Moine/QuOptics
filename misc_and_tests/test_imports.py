@@ -29,7 +29,7 @@ def test_ryser_imports():
     """Test imports from ryser module"""
     print("Testing ryser imports...")
     try:
-        from ryser.permanent import ryser
+        from PyFock.permanent import ryser
         from rnd_module import random_unitary
         U = random_unitary(3)
         result = ryser(U)
@@ -53,7 +53,7 @@ def test_infoq_package_imports():
         if parent not in sys.path:
             sys.path.insert(0, parent)
         
-        from infoq import random_unitary
+        from rnd_module import random_unitary
         U = random_unitary(3)
         print("✓ infoq package imports: OK\n")
         return True

@@ -5,9 +5,9 @@ This module provides functions for performing circuit contraction on quantum cir
 """
 
 import numpy as np
-import quimb as qu
+# import quimb as qu
 from jump_network import quimb_network
-from fock_amplitude import fock_amplitude, fock_amplitude_bs, fock_amplitude_multi_ps, fock_tensor
+from PyFock.fock import fock_amplitude, fock_amplitude_bs, fock_amplitude_multi_ps, fock_tensor
 
 
 def tensor2matrix(U_tensor, input_inds=None, output_inds=None):
@@ -46,7 +46,7 @@ def tensor2matrix(U_tensor, input_inds=None, output_inds=None):
     # Fusionner et convertir en matrice
     U_fused = U_tensor.fuse({'in': input_inds, 'out': output_inds})
     U = U_fused.to_dense(['in', 'out'])
-    return U_matrix
+    return U
 
 def compare_contraction(n_modes, n_gates, n_photons):
     """Compare different contraction methods for a given circuit.
@@ -77,7 +77,7 @@ def compare_contraction(n_modes, n_gates, n_photons):
     
     fock_tensor_2 = np.linalg.multi_dot(fock_list)
 
-    return results
+    return fock_tensor_1, fock_tensor_2
 
 
 if __name__ == "__main__":

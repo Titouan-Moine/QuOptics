@@ -1,7 +1,7 @@
 import math
 import numpy as np
 from clements_scheme.clements_scheme import T
-from fock_amplitude import fock_tensor
+from PyFock.fock import fock_tensor
 
 def contract_circuit(output):
     """
