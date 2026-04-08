@@ -1,19 +1,19 @@
 """Tensor network module.
 
 """
-import sys
-import os
+#import sys
+#import os
 import warnings
 from typing import Optional
 import math
 import copy
 import sparse
-from backend import sparse_tensordot_via_scipy
-from draw import TNSketch, TNPlot
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
+from TeNCo.draw import TNSketch, TNPlot
+from TeNCo.backend import sparse_tensordot_via_scipy
+# current_dir = os.path.dirname(os.path.abspath(__file__))
+# parent_dir = os.path.dirname(current_dir)
+# if parent_dir not in sys.path:
+#     sys.path.insert(0, parent_dir)
 from PyFock.fock import fock_tensor_bs, fock_tensor_ps
 
 class TensorGate:
@@ -37,8 +37,8 @@ class TensorGate:
     """
     def __init__(self,
                  tensor: sparse.COO,
-                 inmodes: list[tuple[int]],
-                 outmodes: list[tuple[int]],
+                 inmodes: list[tuple[int, int]],
+                 outmodes: list[tuple[int, int]],
                  axis_map: Optional[dict[tuple[int, int], int]]=None,
                  name: Optional[str]=None,
                  tags: Optional[set[str]]=None,
@@ -84,7 +84,7 @@ class TensorGate:
 
     def contract(self,
                  other: 'TensorGate',
-                 contract_modes: Optional[list[tuple[int]]]=None,
+                 contract_modes: Optional[list[tuple[int, int]]]=None,
                  new_name: Optional[str]=None,
                  new_tags: Optional[set[str]]=None
                  ) -> 'TensorGate':
@@ -133,6 +133,44 @@ class TensorGate:
                                  tags=new_tags if new_tags is not None else {'contracted'})
 
         return result_gate
+
+    def tensor_product(self,
+                       other: 'TensorGate',
+                       new_name: Optional[str]=None,
+                       new_tags: Optional[set[str]]=None) -> 'TensorGate':
+        """Compute the tensor product of this gate with another gate.
+
+        Args:
+            other (TensorGate): The other gate to compute the tensor product with.
+            new_name (Optional[str]): An optional name for the resulting tensor product gate.
+            new_tags (Optional[set[str]]): An optional set of tags for the resulting tensor product gate.
+
+        Returns:
+            TensorGate: The resulting tensor product gate.
+        """
+        new_tensor = sparse.kron(self.tensor, other.tensor)
+        new_inmodes = self.inmodes + other.inmodes
+        new_outmodes = self.outmodes + other.outmodes
+        new_axis_map = {}
+        # Nombre de modes portés par gate2 (ceux qui varient le plus vite)
+        n_modes_other = len(other.axis_map)
+        
+        # Les modes de gate1 sont décalés vers la gauche (poids forts)
+        for mode, local_axis in self.axis_map.items():
+            new_axis_map[mode] = local_axis + n_modes_other
+
+        # Les modes de gate2 restent en poids faibles
+        for mode, local_axis in other.axis_map.items():
+            new_axis_map[mode] = local_axis
+
+        if new_tags is not None:
+            new_tags = set(new_tags).union({'tensor_product'})
+        return TensorGate(tensor=new_tensor,
+                          inmodes=new_inmodes,
+                          outmodes=new_outmodes,
+                          axis_map=new_axis_map,
+                          name=new_name if new_name is not None else None,
+                          tags=new_tags)
 
     def __repr__(self):
         return f"TensorGate(name={self.name}, tensor={self.tensor},\
@@ -184,7 +222,7 @@ class Lattice:
     def contract(self,
                  gate1_name: str,
                  gate2_name: str,
-                 contract_modes: Optional[list[tuple[int]]]=None,
+                 contract_modes: Optional[list[tuple[int, int]]]=None,
                  new_gate_name: Optional[str]=None,
                  new_gate_tags: Optional[set[str]]=None
                  ):
@@ -240,7 +278,7 @@ class Lattice:
 
     def append(self,
                data: TensorGate | sparse.COO,
-               target: Optional[list[int] | tuple[int]]=None,
+               target: Optional[list[int] | tuple[int, ...]]=None,
                name: Optional[str]=None,
                tags: Optional[set[str]]=None,
                params: Optional[dict]=None):
@@ -308,15 +346,15 @@ class Lattice:
                     self.gate_graph[other_gate.name].add(gate.name)
 
     def append_bs(self,
-                  target : tuple[int],
-                  angles : tuple[float],
+                  target : tuple[int, int],
+                  angles : tuple[float, float],
                   name: Optional[str]=None,
                   tags: Optional[set[str]]=None):
         """Append a parameterized beam splitter gate to the network.
 
         Args:
-            target (tuple[int]): The target modes for the gate.
-            angles (tuple[float]): The angles for the beam splitter in the format (phi, theta).
+            target (tuple[int, int]): The target modes for the gate.
+            angles (tuple[float, float]): The angles for the beam splitter in the format (phi, theta).
             name (Optional[str], optional): The name of the gate. Defaults to None.
             tags (Optional[set[str]], optional): The tags for the gate. Defaults to None.
         """
@@ -359,7 +397,7 @@ class Lattice:
         ps_tensor = fock_tensor_ps(angle, self.n_photons, sparse_tensor=True, check=False)
         self.append(data=ps_tensor, target=(target,), name=name, tags=tags, params=params)
 
-    def contract_all(self, method: Optional[str]="greedy") -> sparse.COO:
+    def contract_all(self, method: str="greedy") -> None:
         """Contract all gates in the network to obtain the final output tensor.
 
         Args:
@@ -370,14 +408,14 @@ class Lattice:
             sparse.COO: The resulting tensor after contracting all gates in the network.
         """
         if method.lower() == 'naive':
-            return self._contract_all_naive()
+            self._contract_all_naive()
         elif method.lower() == 'greedy':
-            return self._contract_all_greedy()
+            self._contract_all_greedy()
         else:
             raise ValueError(f"Unsupported contraction method: {method}. Supported \
                 methods are 'naive' and 'greedy'.")
 
-    def _contract_all_naive(self) -> sparse.COO:
+    def _contract_all_naive(self) -> None:
         """Contract all gates in the network using a naive left-to-right approach.
 
         Returns:
@@ -391,7 +429,7 @@ class Lattice:
             gate2_name = next(iter(self.gate_graph.get(gate1_name, set())))  # get an arbitrary neighbor
             self.contract(gate1_name, gate2_name)
 
-    def _contract_all_greedy(self) -> sparse.COO:
+    def _contract_all_greedy(self) -> None:
         """Contract all gates in the network using a greedy approach based on the number of modes.
 
         Returns:
@@ -399,7 +437,7 @@ class Lattice:
         """
         if not self.gates:
             raise ValueError("No gates to contract in the network.")
-        
+
         while self.length > 1:
             best_score = float('inf')
             best_pair = None
@@ -411,7 +449,7 @@ class Lattice:
                         best_pair = (gate1_name, gate2_name)
             if best_pair is None:
                 # raise ValueError("No valid pairs of gates to contract. The network may be disconnected.")
-                 break  # if no valid pairs to contract, break the loop and return the remaining gates
+                break  # if no valid pairs left, break the loop and return the remaining gates
             self.contract(*best_pair)
     
     def contraction_score(self, gate1_name: str, gate2_name: str) -> float:
@@ -487,7 +525,7 @@ class Lattice:
                          tags=gate.tags,
                          params=gate.params)
         tnd.draw()
-    
+
     def display_plt(self, label_mode: Optional[str]="full"):
         """Display the tensor network using Matplotlib."""
         tnd = TNPlot(n_modes=self.n_modes, name=self.name, label_mode=label_mode)
@@ -500,7 +538,7 @@ class Lattice:
                          params=gate.params)
         tnd.finalize()
 
-    def display(self, method: Optional[str]="text", label_mode: Optional[str]="full"):
+    def display(self, method: str="text", label_mode: str="full"):
         """Display the gates in the network and their connections."""
         if method.lower() == "text":
             self.display_text(label_mode=label_mode)
@@ -512,9 +550,8 @@ class Lattice:
     def __repr__(self):
         return f"TensorNetwork(gates={self.gates})"
 
-
-if __name__ == "__main__":
-    # Example usage
+def main():
+    """Example usage"""
     nb_modes = 4
     nb_photons = 2
     circuit = Lattice(nb_modes, nb_photons)
@@ -527,4 +564,6 @@ if __name__ == "__main__":
     circuit.display(method="plt", label_mode="short")
     circuit.contract_all(method="greedy")
     circuit.display(method='plt', label_mode="minimal")
-    
+
+if __name__ == "__main__":
+    main()

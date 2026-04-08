@@ -6,13 +6,15 @@ import time
 import matplotlib.pyplot as plt
 from clements_scheme.clements_scheme import full_clements
 from clements_scheme.rnd_unitary import random_unitary
-import small_matrix as sm
+import Benchmark.macro as ma
+import Benchmark.micro as mi
 import PyFock.fock as fock
 #from fock_amplitude import clements_fock_tensor
 # Configuration for benchmarking
 
+
 def transformationA(U):
-    return sm.contract_circuit_then_fock(U)
+    return ma.clements_macro(U)
 
 
 def transformationB(U):
@@ -36,13 +38,13 @@ def main():
         # Apply full_clements decomposition as input to transformations
         to_test = full_clements(U)
 
-        # ===== Transformation A =====
+        # ===== Transformation A (macro) =====
         start_time = time.time()
         result_A = transformationA(to_test)
         elapsed_time_A = time.time() - start_time
         times_A.append(elapsed_time_A)
 
-        # ===== Transformation B =====
+        # ===== Transformation B (micro) =====
 
         start_time = time.time()
         result_B = transformationB(to_test)

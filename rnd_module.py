@@ -1,8 +1,8 @@
-"""Utility module for generating random unitary matrices.
+"""Utility module for generating random unitary matrices and Fock states.
 
-This module provides functions to generate random unitary matrices using the
-QR decomposition method. Random unitary matrices are essential for testing
-and validating quantum computing algorithms and optical schemes.
+This module provides functions to generate random unitary matrices using the QR decomposition
+method, as well as random Fock states. Random unitary matrices are essential for testing and
+validating quantum computing algorithms and optical schemes.
 """
 
 import numpy as np

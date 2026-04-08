@@ -1,4 +1,4 @@
-"""Ryser module for matrix permanents in quantum computing.
+""".Fock module for computing Fock state amplitudes and permanents.
 
 This module provides efficient implementations of Ryser's algorithm for
 computing the permanent of a matrix, which is a key operation in various

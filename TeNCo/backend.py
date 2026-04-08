@@ -12,7 +12,10 @@ import numpy as np
 import sparse
 import tracemalloc
 
-def sparse_tensordot_via_scipy(a, b, axes_a, axes_b):
+def sparse_tensordot_via_scipy(a: sparse.COO,
+                               b: sparse.COO,
+                               axes_a: list[int],
+                               axes_b: list[int]) -> sparse.COO:
     """Contraction of two sparse.COO tensors via scipy.sparse, 
     without ever densifying.
 

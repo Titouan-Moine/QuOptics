@@ -5,16 +5,15 @@ from PyFock.fock import fock_tensor
 
 def contract_circuit(output):
     """
-    Contract a linear optics circuit into a single L×L matrix.
+    Contract a linear optics circuit into a single matrix.
 
     Parameters
     ----------
-    circuit : list[dict]
-        Each dict has keys:
-            - 'matrix': local gate
-            - 'modes': target modes
-    L : int
-        Total number of modes
+    output : tuple[list[tuple], np.ndarray]
+        Each tuple has the form (m, n, phi, theta), where:
+            - m, n: target modes
+            - phi, theta: parameters of the beamsplitter
+        The second element is the final diagonal matrix Dfinal.
 
     Returns
     -------
@@ -26,25 +25,26 @@ def contract_circuit(output):
     dim = Dfinal.shape[0]   # nombre de lignes
     U_total = np.eye(dim, dtype=complex)
 
-    for element in full_decomposition:
-        U_gate= T(element[0],element[1],element[2],element[3],dim)
+    for e in full_decomposition:
+        U_gate= T(e[0],e[1],e[2],e[3],dim)
         U_total = U_gate @ U_total   # left → right (input → output)
+
+    U_total = Dfinal @ U_total
 
     return U_total
 
-def contract_circuit_then_fock(output, n_photons=None):
+def clements_macro(output, n_photons=None):
     """
     Contract a linear optics circuit into a single L×L matrix,
     then compute the Fock state amplitude tensor for n_photons.
 
     Parameters
     ----------
-    circuit : list[dict]
-        Each dict has keys:
-            - 'matrix': local gate
-            - 'modes': target modes
-    L : int
-        Total number of modes
+    output : tuple[list[tuple], np.ndarray]
+        Each tuple has the form (m, n, phi, theta), where:
+            - m, n: target modes
+            - phi, theta: parameters of the beamsplitter
+        The second element is the final diagonal matrix Dfinal.
     n_photons : int
         Number of photons
 
@@ -54,7 +54,7 @@ def contract_circuit_then_fock(output, n_photons=None):
         The Fock state amplitude tensor.
     """
     if n_photons is None:
-        n_photons = math.ceil(output[1].shape[0] / 10)  # default to number of modes
+        n_photons = math.ceil(output[1].shape[0] / 10)  # default to number of modes divided by 10
     U_total = contract_circuit(output)
     return fock_tensor(U_total, n_photons, method='glynn_gray')
 

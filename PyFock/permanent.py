@@ -14,21 +14,20 @@ Key Functions :
         mixed-radix Gray code optimization
 
 """
-import sys
-import os
+from typing import Optional, Generator
+# import sys
+# import os
 from math import comb
 from itertools import product
 import numpy as np
-
 # Add parent directory to path to enable imports from infoq package
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from rnd_module import random_unitary
 
 
 
 
 
-def ryser(A):
+def ryser(A: np.ndarray) -> complex:
     """Compute the permanent of a matrix A using Ryser's algorithm.
 
     Parameters
@@ -58,7 +57,7 @@ def ryser(A):
 
     return perm
 
-def bin_gray_rec(n):
+def bin_gray_rec(n: int) -> np.ndarray:
     """Recursively generate Gray codes for binary numbers of n bits.
 
     Parameters
@@ -79,7 +78,7 @@ def bin_gray_rec(n):
     l = bin_gray(n-1)
     return np.concatenate((l, np.flip(l) + (1 << (n-1)))).astype(np.int64)
 
-def bin_gray(n):
+def bin_gray(n: int) -> np.ndarray:
     """Generate Gray codes for binary numbers of n bits.
 
     Parameters
@@ -95,7 +94,7 @@ def bin_gray(n):
     l = np.arange(1 << n, dtype=np.int64)
     return l ^ (l >> 1)
 
-def ryser_gray(A):
+def ryser_gray(A: np.ndarray) -> complex:
     """Compute the permanent using Gray code optimization.
 
     Parameters
@@ -130,7 +129,7 @@ def ryser_gray(A):
 
 
 
-def ryser_hyperrect(U, vecn, vecm, n=None):
+def ryser_hyperrect(U: np.ndarray, vecn: np.ndarray, vecm: np.ndarray, n: Optional[int] = None) -> complex:
     """Compute the permanent of a repeating sub-matrix using an ameliorated Ryser's algorithm.
 
     Parameters
@@ -157,7 +156,7 @@ def ryser_hyperrect(U, vecn, vecm, n=None):
     # take indices of non-zero coords of vecn and vecm
     nzn_mask = vecn != 0
     nzm_mask = vecm != 0
-    nzn_index = np.arange(N)[nzn_mask]
+    # nzn_index = np.arange(N)[nzn_mask]
     nzm_index = np.arange(N)[nzm_mask]
     nzn = vecn[nzn_mask]
     nzm = vecm[nzm_mask]
@@ -176,13 +175,19 @@ def ryser_hyperrect(U, vecn, vecm, n=None):
     
     return perm
 
-def gray_mixed(radix, prefix=(), reversed=False):
+def gray_mixed(radix: np.ndarray,
+               prefix: tuple = (),
+               backward: bool = False) -> Generator[np.ndarray, None, None]:
     """Generate a mixed-radix Gray code for given radices
 
     Parameters
     ----------
     radix : np.ndarray
         An array containing the radices.
+    prefix : tuple
+        A tuple containing the prefix for the current recursion level.
+    backward : bool
+        Whether to reverse the order of the current recursion level.
 
     Yields
     ------
@@ -195,10 +200,10 @@ def gray_mixed(radix, prefix=(), reversed=False):
     if radix.shape[0] == 0:
         yield np.array(prefix)
     else:
-        if reversed:
+        if backward:
             for c in range(radix[0], -1, -1):
                 if c % 2 == 0:
-                    yield from gray_mixed(radix[1:], prefix + (c,), reversed=True)
+                    yield from gray_mixed(radix[1:], prefix + (c,), backward=True)
                 else:
                     yield from gray_mixed(radix[1:], prefix + (c,))
         else:
@@ -206,9 +211,9 @@ def gray_mixed(radix, prefix=(), reversed=False):
                 if c % 2 == 0:
                     yield from gray_mixed(radix[1:], prefix + (c,))
                 else:
-                    yield from gray_mixed(radix[1:], prefix + (c,), reversed=True)
+                    yield from gray_mixed(radix[1:], prefix + (c,), backward=True)
 
-def index_and_sign(c, prev_c):
+def index_and_sign(c: np.ndarray, prev_c: np.ndarray) -> tuple[int, int]:
     """Determine the index and sign of the change between two mixed-radix gray vectors.
 
     Parameters
@@ -234,7 +239,10 @@ def index_and_sign(c, prev_c):
     return idx, sign
 
 
-def ryser_hyperrect_gray(U, vecn, vecm, n=None):
+def ryser_hyperrect_gray(U: np.ndarray,
+                         vecn: np.ndarray,
+                         vecm: np.ndarray,
+                         n: Optional[int] = None) -> complex:
     """Compute the permanent of a repeating sub-matrix using an ameliorated Ryser's algorithm
     and mixed-radix gray order.
 
@@ -254,7 +262,7 @@ def ryser_hyperrect_gray(U, vecn, vecm, n=None):
         
     """
     if n is None:
-        n = np.sum(vecn)
+        n = int(np.sum(vecn))
     # if np.sum(vecn) != np.sum(vecm) or np.sum(vecm) != n:
     #     raise ValueError("vecn and vecm must sum to the same amount\
     #                      (i.e. have the same number of photons)")
@@ -296,7 +304,7 @@ def ryser_hyperrect_gray(U, vecn, vecm, n=None):
             prev_c = c
     return perm
 
-def glynn(A):
+def glynn(A: np.ndarray) -> complex:
     """Compute the permanent of a matrix using Glynn's algorithm.
 
     Parameters
@@ -327,7 +335,7 @@ def glynn(A):
         perm += sign * prod
     return perm / (2**(n-1))
 
-def glynn_gray(A):
+def glynn_gray(A: np.ndarray) -> complex:
     """Compute the permanent using Glynn's algorithm with Gray code optimization.
 
     Parameters
@@ -367,7 +375,7 @@ def glynn_gray(A):
 
     return perm / (2 ** (n - 1))
 
-def repeat_matrix(U, vecn, vecm):
+def repeat_matrix(U: np.ndarray, vecn: np.ndarray, vecm: np.ndarray) -> np.ndarray:
     """Construct the repeating sub-matrix from base matrix U and multiplicity vectors.
 
     Parameters
@@ -406,19 +414,19 @@ def repeat_matrix(U, vecn, vecm):
 
 if __name__ == "__main__":
     # tests
-    U = random_unitary(4)
-    vecn = np.array([1,3,1,1])
-    vecm = np.array([1,2,1,2])
+    Utest = random_unitary(4)
+    vecntest = np.array([1,3,1,1])
+    vecmtest = np.array([1,2,1,2])
     # vecn = np.array([1,3,1,1])
     # vecm = np.array([1,2,2,1])
     # U = np.array([[1, 0, 0, 0],
     #               [1, 0, 0, 0],
     #               [1, 0, 0, 0],
     #               [1, 0, 0, 0]])
-    print(repeat_matrix(U, vecn, vecm))
-    print("Permanent (Ryser) :", ryser(repeat_matrix(U, vecn, vecm)))
-    print("Permanent (Ryser Gray) :", ryser_gray(repeat_matrix(U, vecn, vecm)))
-    print("Permanent (Ryser Hyperrect) :", ryser_hyperrect(U, vecn, vecm))
-    print("Permanent (Ryser Hyperrect Gray) :", ryser_hyperrect_gray(U, vecn, vecm))
-    print("Permanent (Glynn) :", glynn(repeat_matrix(U, vecn, vecm)))
-    print("Permanent (Glynn Gray) :", glynn_gray(repeat_matrix(U, vecn, vecm)))
+    print(repeat_matrix(Utest, vecntest, vecmtest))
+    print("Permanent (Ryser) :", ryser(repeat_matrix(Utest, vecntest, vecmtest)))
+    print("Permanent (Ryser Gray) :", ryser_gray(repeat_matrix(Utest, vecntest, vecmtest)))
+    print("Permanent (Ryser Hyperrect) :", ryser_hyperrect(Utest, vecntest, vecmtest))
+    print("Permanent (Ryser Hyperrect Gray) :", ryser_hyperrect_gray(Utest, vecntest, vecmtest))
+    print("Permanent (Glynn) :", glynn(repeat_matrix(Utest, vecntest, vecmtest)))
+    print("Permanent (Glynn Gray) :", glynn_gray(repeat_matrix(Utest, vecntest, vecmtest)))
