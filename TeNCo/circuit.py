@@ -9,7 +9,7 @@ import math
 import copy
 import sparse
 from TeNCo.draw import TNSketch, TNPlot
-from TeNCo.backend import sparse_tensordot_via_scipy
+# from TeNCo.backend import sparse_tensordot_via_scipy
 # current_dir = os.path.dirname(os.path.abspath(__file__))
 # parent_dir = os.path.dirname(current_dir)
 # if parent_dir not in sys.path:
@@ -46,13 +46,15 @@ class TensorGate:
                  warn: bool=False):
         self.name = name if name is not None else f"Gate_{id(self)}"
         self.tensor = tensor
-        self.inmodes = inmodes
-        self.outmodes = outmodes
+        sorted_inmodes = sorted(inmodes, key=lambda x: x[0])
+        sorted_outmodes = sorted(outmodes, key=lambda x: x[0])
+        self.inmodes = sorted_inmodes
+        self.outmodes = sorted_outmodes
         if axis_map is None:
             if warn:
                 warnings.warn("No axis_map provided. Creating a default one.", UserWarning)
             axis_map = {}
-            for i, mode in enumerate(inmodes + outmodes):
+            for i, mode in enumerate(sorted_inmodes + sorted_outmodes):
                 axis_map[mode] = i
         self.axis_map = axis_map
         self.tags = tags if tags is not None else set()
@@ -82,6 +84,17 @@ class TensorGate:
         outmode_indices = [e[0] for e in self.outmodes]
         return outmode_indices.index(outmode)
 
+    def canonicalize_axes(self) -> None:
+        """Canonicalize the axes of the tensor by sorting the mode tuples and reshaping the
+        tensor accordingly. This ensures a consistent ordering of modes and axes for easier
+        contraction and comparison. The order of the axis will then correspond to the order
+        of modes in the sorted inmodes, then outmodes lists."""
+        self.inmodes.sort(key=lambda x: x[0])
+        self.outmodes.sort(key=lambda x: x[0])
+        new_modes_order = self.inmodes + self.outmodes
+        self.tensor = self.tensor.transpose([self.axis_map[mode] for mode in new_modes_order])
+        self.axis_map = {mode: i for i, mode in enumerate(new_modes_order)}
+
     def contract(self,
                  other: 'TensorGate',
                  contract_modes: Optional[list[tuple[int, int]]]=None,
@@ -105,48 +118,59 @@ class TensorGate:
             contract_modes = list(set(self.outmodes) & set(other.inmodes))
             if not contract_modes:
                 raise ValueError("No common modes to contract on. Please specify contract_modes explicitly.")
-        
+
+        contract_modes = sorted(contract_modes, key=lambda x: x[0])
         axes_a = [self.axis_map[mode] for mode in contract_modes]
         axes_b = [other.axis_map[mode] for mode in contract_modes]
         if not axes_a or not axes_b:
             raise ValueError("Incompatible contraction modes. Check axis mapping")
-        
-        new_axis_map = {mode: i for i, mode in enumerate(self.inmodes +self.outmodes) if mode not in contract_modes}
-        new_axis_map.update({mode: i+len(new_axis_map) for i, mode in enumerate(other.inmodes + other.outmodes) if mode not in contract_modes})
+
+        remaining_modes_a = [mode for mode in self.inmodes + self.outmodes if mode not in contract_modes]
+        remaining_modes_a.sort(key=lambda m: self.axis_map[m])
+        new_axis_map = {mode: i for i, mode in enumerate(remaining_modes_a)}
+        remaining_modes_b = [mode for mode in other.inmodes + other.outmodes if mode not in contract_modes]
+        remaining_modes_b.sort(key=lambda m: other.axis_map[m])
+        temp = len(remaining_modes_a)
+        new_axis_map.update({mode: i + temp for i, mode in enumerate(remaining_modes_b)})
         new_inmodes = [mode for mode in self.inmodes if mode not in contract_modes] + \
                       [mode for mode in other.inmodes if mode not in contract_modes]
         new_outmodes = [mode for mode in self.outmodes if mode not in contract_modes] + \
                        [mode for mode in other.outmodes if mode not in contract_modes]
 
         # Perform the contraction using the specified modes
-        result_tensor = sparse_tensordot_via_scipy(self.tensor,
-                                                   other.tensor,
-                                                   axes_a=axes_a,
-                                                   axes_b=axes_b)
+        result_tensor = sparse.tensordot(self.tensor,
+                                         other.tensor,
+                                         axes=(axes_a, axes_b))
+
+        final_modes_order = sorted(new_inmodes) + sorted(new_outmodes)
+        current_indices = [new_axis_map[m] for m in final_modes_order]
+        result_tensor = result_tensor.transpose(current_indices)
+        final_axis_map = {mode: i for i, mode in enumerate(final_modes_order)}
 
         # Create a new gate for the result
         result_gate = TensorGate(tensor=result_tensor,
                                  inmodes=new_inmodes,
                                  outmodes=new_outmodes,
-                                 axis_map=new_axis_map,
+                                 axis_map=final_axis_map,
                                  name=new_name if new_name is not None else None,
                                  tags=new_tags if new_tags is not None else {'contracted'})
+        result_gate.canonicalize_axes()  # Ensure consistent ordering of modes and axes in the result
 
         return result_gate
 
-    def tensor_product(self,
-                       other: 'TensorGate',
-                       new_name: Optional[str]=None,
-                       new_tags: Optional[set[str]]=None) -> 'TensorGate':
-        """Compute the tensor product of this gate with another gate.
+    def kron_prod(self,
+                  other: 'TensorGate',
+                  new_name: Optional[str]=None,
+                  new_tags: Optional[set[str]]=None) -> 'TensorGate':
+        """Compute the Kronecker product of this gate with another gate.
 
         Args:
-            other (TensorGate): The other gate to compute the tensor product with.
-            new_name (Optional[str]): An optional name for the resulting tensor product gate.
-            new_tags (Optional[set[str]]): An optional set of tags for the resulting tensor product gate.
+            other (TensorGate): The other gate to compute the Kronecker product with.
+            new_name (Optional[str]): An optional name for the resulting Kronecker product gate.
+            new_tags (Optional[set[str]]): An optional set of tags for the resulting Kronecker product gate.
 
         Returns:
-            TensorGate: The resulting tensor product gate.
+            TensorGate: The resulting Kronecker product gate.
         """
         new_tensor = sparse.kron(self.tensor, other.tensor)
         new_inmodes = self.inmodes + other.inmodes
@@ -218,7 +242,7 @@ class Lattice:
             for outmode in gate.outmodes:
                 mode_counters[outmode[0]] = max(mode_counters[outmode[0]], outmode[1])
         self._current_mode_counters = mode_counters
-    
+
     def contract(self,
                  gate1_name: str,
                  gate2_name: str,
@@ -313,6 +337,7 @@ class Lattice:
                 raise ValueError("The input modes of the gate must be a subset of the \
                     current mode labels in the network.")
             gate = data
+            gate.canonicalize_axes()  # Ensure consistent ordering of modes and axes
             for outmode in gate.outmodes:
                 self._current_mode_counters[outmode[0]] = outmode[1]
 
@@ -325,12 +350,14 @@ class Lattice:
             if data.ndim != 2*len(target):
                 raise ValueError(f"Tensor has {data.ndim} dimensions but target has {len(target)} \
                     modes. Dimensions of the tensor must be twice the number of target modes.")
+            # target = sorted(target)
             inmodes = [(i, self._current_mode_counters[i]) for i in target]
             outmodes = [(i, self._current_mode_counters[i]+1) for i in target]
             for t in target:
                 self._current_mode_counters[t] += 1
             gate = TensorGate(tensor=data, inmodes=inmodes, outmodes=outmodes,
                               name=name, tags=tags, params=params)
+            gate.canonicalize_axes()  # Ensure consistent ordering of modes and axes
 
         else:
             raise ValueError("Can only append a TensorGate or a sparse.COO tensor.")
@@ -451,7 +478,7 @@ class Lattice:
                 # raise ValueError("No valid pairs of gates to contract. The network may be disconnected.")
                 break  # if no valid pairs left, break the loop and return the remaining gates
             self.contract(*best_pair)
-    
+
     def contraction_score(self, gate1_name: str, gate2_name: str) -> float:
         """Compute the contraction score between two gates.
 
@@ -474,7 +501,7 @@ class Lattice:
         cost2 = self.space_cost(dim2)
         cost3 = self.space_cost(dim3)
         return (cost1 + cost2) / cost3  # higher score means more efficient contraction
-    
+
     def space_cost(self, dim: int) -> int:
         """Compute an estimate of the space cost of a gate.
 

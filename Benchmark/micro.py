@@ -1,4 +1,8 @@
-
+"""Module for benchmarking the micro implementation of the Fock state amplitude tensor
+computation for linear optics circuits. The micro method constructs the Fock tensor
+network for the given circuit and contracts it to compute the amplitude tensor for a
+specified number of photons. This module is designed to be used in conjunction with
+the macro implementation for performance comparison."""
 from typing import Optional
 import math
 import numpy as np

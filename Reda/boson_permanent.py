@@ -1,5 +1,5 @@
 import numpy as np
-from utils import all_outcomes, build_AS
+from Reda.reda_utils import all_outcomes, build_AS
 from permanent import ryser_permanent
 import math
 

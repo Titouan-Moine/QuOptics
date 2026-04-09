@@ -127,8 +127,6 @@ def ryser_gray(A: np.ndarray) -> complex:
 
     return perm
 
-
-
 def ryser_hyperrect(U: np.ndarray, vecn: np.ndarray, vecm: np.ndarray, n: Optional[int] = None) -> complex:
     """Compute the permanent of a repeating sub-matrix using an ameliorated Ryser's algorithm.
 
@@ -237,7 +235,6 @@ def index_and_sign(c: np.ndarray, prev_c: np.ndarray) -> tuple[int, int]:
     idx = diff_idx[0]
     sign = int(c[idx] - prev_c[idx])
     return idx, sign
-
 
 def ryser_hyperrect_gray(U: np.ndarray,
                          vecn: np.ndarray,
@@ -407,8 +404,8 @@ def repeat_matrix(U: np.ndarray, vecn: np.ndarray, vecm: np.ndarray) -> np.ndarr
     #     cols.extend([repeated_U[:, j]] * vecm[j])
     # repeated_U = np.array(cols).T
     
-    repeated_U = np.repeat(U, vecn, axis=0)
-    repeated_U = np.repeat(repeated_U, vecm, axis=1)
+    repeated_U = np.repeat(U, vecm, axis=0)
+    repeated_U = np.repeat(repeated_U, vecn, axis=1)
 
     return repeated_U
 

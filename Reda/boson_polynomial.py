@@ -1,6 +1,6 @@
 import numpy as np
 import math
-from utils import all_outcomes
+from Reda.reda_utils import all_outcomes
 from collections import defaultdict
 
 def boson_distribution_polynomial(A):

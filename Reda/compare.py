@@ -1,6 +1,6 @@
 import time
 import numpy as np
-from utils import random_unitary
+from Reda.reda_utils import random_unitary
 from boson_permanent import boson_distribution_permanent
 from boson_polynomial import boson_distribution_polynomial
 import pandas as pd

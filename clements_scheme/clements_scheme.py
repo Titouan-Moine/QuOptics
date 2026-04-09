@@ -399,7 +399,10 @@ def full_clements(U, project=True):
     
     Combines the decomposition and inversion of the left decomposition to yield
     a full sequence of beam splitters and phase shifters that implement the
-    original unitary matrix.
+    original unitary matrix. The unitary is reconstructed as
+    U = Dfinal @ T1 @ T2 @ ... @ Tk, where Dfinal is the final diagonal unitary
+    matrix and T1, T2, ..., Tk are the beam splitter matrices given in order by
+    the full decomposition.
     
     Parameters
     ----------
@@ -424,12 +427,12 @@ def full_clements(U, project=True):
     ValueError
         If the input matrix is not square.
     """
-    
+
     if U.shape[0] != U.shape[1]:
         raise ValueError("Input matrix must be square.")
     if not np.allclose(U.conj().T @ U, np.eye(U.shape[0])):
         raise ValueError("Input matrix must be unitary.")
-    
+
     decomposition, D = clements_decomposition(U, project=project)
     left_decomposition, right_decomposition = decomposition
     inverted_left, Dfinal = clements_invert_left(D, left_decomposition, project=project)
@@ -439,8 +442,21 @@ def full_clements(U, project=True):
     return full_decomposition, Dfinal
 
 
-
 # clements_decomposition(random_unitary(4))
 # Ur = random_unitary(4)
 # phi, theta = nullify_row(Ur, 1, 0, 1, 2)
 # print(np.round(project_U2(T(1, 2, phi, theta, 4)@Ur), 10))
+
+def main():
+    U = random_unitary(4)
+    decomposition, Dfinal = full_clements(U, project=True)
+    U_reconstructed = Dfinal.copy()
+    for m, n, phi, theta in decomposition:
+        U_reconstructed = U_reconstructed @ T(m, n, phi, theta, U.shape[0])
+    print("Original U:\n", U)
+    print("Reconstructed U:\n", U_reconstructed)
+    print("Difference:\n", U - U_reconstructed)
+
+if __name__ == "__main__":
+    main()
+        

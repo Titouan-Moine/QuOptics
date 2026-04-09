@@ -1,9 +1,11 @@
 import math
+from typing import Optional
 import numpy as np
 from clements_scheme.clements_scheme import T
 from PyFock.fock import fock_tensor
+import sparse
 
-def contract_circuit(output):
+def contract_circuit(output: tuple[list[tuple[int, int, float, float]], np.ndarray]) -> np.ndarray:
     """
     Contract a linear optics circuit into a single matrix.
 
@@ -20,20 +22,19 @@ def contract_circuit(output):
     np.ndarray
         Total circuit transformation
     """
-    full_decomposition=output[0]
-    Dfinal=output[1]
-    dim = Dfinal.shape[0]   # nombre de lignes
-    U_total = np.eye(dim, dtype=complex)
+    full_decomposition = output[0]
+    Dfinal = output[1]
+    N = Dfinal.shape[0]   # nombre de lignes
+    U_total = Dfinal.copy()  # start with the final diagonal matrix
 
-    for e in full_decomposition:
-        U_gate= T(e[0],e[1],e[2],e[3],dim)
-        U_total = U_gate @ U_total   # left → right (input → output)
-
-    U_total = Dfinal @ U_total
+    for m, n, phi, theta in full_decomposition:
+        Tmn = T(m, n, phi, theta, N)
+        U_total = U_total @ Tmn   # left → right (input → output)
 
     return U_total
 
-def clements_macro(output, n_photons=None):
+def clements_macro(output: tuple[list[tuple[int, int, float, float]], np.ndarray],
+                   n_photons: Optional[int]=None) -> tuple[sparse.COO, np.ndarray]:
     """
     Contract a linear optics circuit into a single L×L matrix,
     then compute the Fock state amplitude tensor for n_photons.
@@ -56,7 +57,7 @@ def clements_macro(output, n_photons=None):
     if n_photons is None:
         n_photons = math.ceil(output[1].shape[0] / 10)  # default to number of modes divided by 10
     U_total = contract_circuit(output)
-    return fock_tensor(U_total, n_photons, method='glynn_gray')
+    return fock_tensor(U_total, n_photons, sparse_tensor=True, method='glynn_gray'), U_total
 
 def test_empty_circuit():
     dim = 4

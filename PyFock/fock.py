@@ -271,6 +271,9 @@ def fock_amplitude_bs(phi: float,
                       outvec: np.ndarray,
                       check_photons: bool = True) -> complex:
     """Compute the Fock state amplitude for a beam splitter using the two-mode beam splitter function.
+    The matrix representation of the beam splitter (in the mode space) is given by:
+    B = [[exp(1j * phi) * cos(theta), -sin(theta)],
+         [exp(1j * phi) * sin(theta), cos(theta)]]
 
     Parameters
     ----------
