@@ -310,7 +310,9 @@ def fock_amplitude_bs(phi: float,
     l = outvec[1]
 
     p_start = max(0, k - j)
-    term = (-1)**(i - p_start) * s**(i + k - 2*p_start) * c**(j - k + 2*p_start)\
+    # term = (-1)**(i - p_start) * s**(i + k - 2*p_start) * c**(j - k + 2*p_start)\
+    #         * math.comb(i, p_start) * math.comb(j, k - p_start)
+    term = (-1)**(k - p_start) * s**(i + k - 2*p_start) * c**(j - k + 2*p_start)\
             * math.comb(i, p_start) * math.comb(j, k - p_start)
 
     amplitude = term
@@ -318,7 +320,8 @@ def fock_amplitude_bs(phi: float,
         term *= - c**2 * (i - p + 1) * (k - p + 1) / (s**2 * p * (j - k + p))
         amplitude += term
 
-    amplitude *= np.exp(1j * k * phi)
+    # amplitude *= np.exp(1j * k * phi)
+    amplitude *= np.exp(1j * i * phi)
     amplitude *= math.sqrt(math.factorial(k) * math.factorial(l) /
                        (math.factorial(i) * math.factorial(j)))
 

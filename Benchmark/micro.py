@@ -37,14 +37,16 @@ def clements_micro(output: tuple[list[tuple[int, int, float, float]], np.ndarray
 
     lattice = tnc.Lattice(n_modes, n_photons,
                           name=f"clements ({n_modes} modes, {n_photons} photons)")
-    for bs in output[0]:
-        lattice.append_bs((bs[0], bs[1]), (bs[2], bs[3]))
+    for i, bs in enumerate(output[0][::-1]):
+        lattice.append_bs((bs[0], bs[1]), (bs[2], bs[3]), f"BS{bs[0]}{bs[1]}_{i}")
     for mode in range(n_modes):
-        lattice.append_ps(mode, np.angle(output[1][mode, mode]))
+        lattice.append_ps(mode, np.angle(output[1][mode, mode]), f"PS{mode}")
     lattice.contract_all(method='greedy')
 
     gate_names = list(lattice.gates.keys())
     if len(gate_names) != 1:
         raise ValueError(f"Expected exactly one gate after clements circuit contraction, \
             but found {len(gate_names)} gates.")
-    return lattice.gates[gate_names[0]].tensor
+    final_gate = lattice.gates[gate_names[0]]
+    # final_gate.canonicalize_axes()
+    return final_gate.tensor

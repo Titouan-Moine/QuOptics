@@ -94,7 +94,11 @@ def draw_clements_scheme(D, decomposition, N=None):
                                 tickvals=list(range(N)))
     clements_graph.show()
 
-U = random_unitary(10)
-decomposition, D = clements_scheme.full_clements(U, project=True)
-#print(decomposition)
-draw_clements_scheme(U, decomposition)
+def main():
+    U = random_unitary(3)
+    decomposition, D = clements_scheme.full_clements(U, project=True)
+    #print(decomposition)
+    draw_clements_scheme(D, decomposition)
+
+if __name__ == "__main__":
+    main()
