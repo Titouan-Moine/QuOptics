@@ -186,7 +186,7 @@ class TNPlot:
         self.n_modes = n_modes
         self.name = name if name is not None else "unnamed_network"
         self.label_mode = label_mode
-        self.curr_mode_x = {i: 0 for i in range(n_modes)}  # track the current x position for each mode
+        self.curr_mode_x = {i: 0. for i in range(n_modes)}  # track the current x position for each mode
 
         # Initialize the Matplotlib figure and axes
         self.fig, self.ax = plt.subplots(figsize=(12, n_modes * 1.2))
@@ -322,10 +322,18 @@ class TNPlot:
 
     def finalize(self):
         """Finalize the drawing by setting the limits and displaying the plot."""
-        self.ax.set_xlim(-1.5, max(self.curr_mode_x.values()) + 1)
+        content_w = max(self.curr_mode_x.values()) + 2
+        content_h = self.n_modes + 1.5
+
+        fig_w = min(16, max(8, content_w * 0.6))
+        fig_h = min(7, max(4, content_h))
+
+        self.fig.set_size_inches(fig_w, fig_h, forward=True)
+        
+        self.ax.set_xlim(-0.5, max(self.curr_mode_x.values()))
         self.ax.set_ylim(-0.7, self.n_modes - 0.3)
-        self.ax.set_aspect('equal')
+        self.ax.set_aspect('auto')
         self.ax.axis('off')
         plt.gca().invert_yaxis() # Mode 0 en haut comme dans ta grille
-        plt.tight_layout()
+        # plt.tight_layout()
         plt.show()

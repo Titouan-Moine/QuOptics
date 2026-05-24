@@ -129,6 +129,10 @@ class TensorGate:
         tensor accordingly. This ensures a consistent ordering of modes and axes for easier
         contraction and comparison. The order of the axis will then correspond to the order
         of modes in the sorted inmodes, then outmodes lists."""
+        # print(f"Canonicalizing axes for gate {self.name}...")
+        # print("Original inmodes:", self.inmodes)
+        # print("Original outmodes:", self.outmodes)
+        # print("Original axis_map:", self.axis_map)
         self.inmodes.sort()
         self.outmodes.sort()
         new_modes_order = self.inmodes + self.outmodes
@@ -202,6 +206,7 @@ class TensorGate:
         Returns:
             TensorGate: The resulting contracted gate.
         """
+        # print(f"-----Contracting gates: {self.name} and {other.name}-----")
         common_modes = set(self.outmodes) & set(other.inmodes) | set(self.inmodes) & set(other.outmodes)
         if contract_modes is None:
             contract_modes = list(common_modes)
@@ -333,12 +338,12 @@ class TensorGate:
         self.tags = self.tags.union(new_tags if new_tags is not None else {'self_contracted'})
         if new_name is not None:
             self.name = new_name
-        print(f"Self-contracted {self.name} along modes {contract_modes}. \n\
-              Old inmodes: {old_inmodes}, old outmodes: {old_outmodes} \n\
-              New inmodes: {self.inmodes}, new outmodes: {self.outmodes}")
-        print("old axis map:", old_axis_map)
-        print("axis map after self-contraction:", self.axis_map)
-        print("old modes order:", old_modes_order, "new modes order:", self.modes_order)
+        # print(f"Self-contracted {self.name} along modes {contract_modes}. \n\
+        #       Old inmodes: {old_inmodes}, old outmodes: {old_outmodes} \n\
+        #       New inmodes: {self.inmodes}, new outmodes: {self.outmodes}")
+        # print("old axis map:", old_axis_map)
+        # print("axis map after self-contraction:", self.axis_map)
+        # print("old modes order:", old_modes_order, "new modes order:", self.modes_order)
         # print("resulting modes:", resulting_modes)
 
     # TODO: fix this method to take into account the position of modes in both tensors, notably
@@ -347,39 +352,38 @@ class TensorGate:
                   other: 'TensorGate',
                   new_name: Optional[str]=None,
                   new_tags: Optional[set[str]]=None) -> 'TensorGate':
-        """Compute the Kronecker product of this gate with another gate.
-
-        Args:
-            other (TensorGate): The other gate to compute the Kronecker product with.
-            new_name (Optional[str]): An optional name for the resulting Kronecker product gate.
-            new_tags (Optional[set[str]]): An optional set of tags for the resulting Kronecker product gate.
-
-        Returns:
-            TensorGate: The resulting Kronecker product gate.
+        """Compute the Kronecker (outer) product of this gate with another gate.
+        ...
         """
-        new_tensor = sparse.kron(self.tensor, other.tensor)
+        # print(f"-----Computing Kronecker product of {self.name} and {other.name}-----")
+        new_tensor = sparse.tensordot(self.tensor, other.tensor, axes=0)
+
         new_inmodes = self.inmodes + other.inmodes
         new_outmodes = self.outmodes + other.outmodes
+        new_modes_order = self.modes_order + other.modes_order
         new_axis_map = defaultdict(list)
-        # Nombre de modes portés par gate2 (ceux qui varient le plus vite)
-        n_modes_other = len(other.modes_order)
-        
-        # Les modes de gate1 sont décalés vers la gauche (poids forts)
-        for mode, local_axis in self.axis_map.items():
-            new_axis_map[mode] = [axis + n_modes_other for axis in local_axis]
 
-        # Les modes de gate2 restent en poids faibles
+        n_modes_self = len(self.modes_order)
+
+        for mode, local_axis in self.axis_map.items():
+            new_axis_map[mode] = local_axis.copy()
+
         for mode, local_axis in other.axis_map.items():
-            new_axis_map[mode] = local_axis
+            new_axis_map[mode] = [axis + n_modes_self for axis in local_axis]
 
         if new_tags is not None:
             new_tags = set(new_tags).union({'tensor_product'})
-        return TensorGate(tensor=new_tensor,
+
+        gate = TensorGate(tensor=new_tensor,
                           inmodes=new_inmodes,
                           outmodes=new_outmodes,
                           axis_map=new_axis_map,
+                          modes_order=new_modes_order,
                           name=new_name if new_name is not None else None,
                           tags=new_tags)
+
+        gate.canonicalize_axes()
+        return gate
 
     def prune_invalid_states(self, max_photons: int) -> None:
         """Remove elements where the total photon number exceeds max_photons.
@@ -509,7 +513,7 @@ class Lattice:
         if gate2 is None:
             raise ValueError(f"gate2 must be part of the network, {gate2_name} not found.")
 
-        common_modes = set(gate1.outmodes) & set(gate2.inmodes) | set(gate1.inmodes) & set(gate2.outmodes)
+        common_modes = (set(gate1.outmodes) & set(gate2.inmodes)) | (set(gate1.inmodes) & set(gate2.outmodes))
         if contract_modes is None:
             contract_modes = list(common_modes)
             if not contract_modes:
@@ -542,7 +546,9 @@ class Lattice:
                 neighbors.add(result_gate.name)
         self.gate_graph.pop(gate1_name, None)
         self.gate_graph.pop(gate2_name, None)
-        # print(f"contracted {gate1_name} (shape: {gate1.tensor.shape}) and {gate2_name} (shape: {gate2.tensor.shape}) along modes {contract_modes}")
+        # print(f"contracted {gate1_name} and {gate2_name} along modes {contract_modes}")
+        # print(f"{gate1_name} inmodes: {gate1.inmodes}, {gate1_name} outmodes: {gate1.outmodes}")
+        # print(f"{gate2_name} inmodes: {gate2.inmodes}, {gate2_name} outmodes: {gate2.outmodes}")
         # print(f"resulting shape: {result_gate.tensor.shape}")
         # print(f"resulting axis map: {result_gate.axis_map}")
         # result_gate.self_contract()
@@ -556,7 +562,8 @@ class Lattice:
                name: Optional[str]=None,
                tags: Optional[set[str]]=None,
                params: Optional[dict]=None,
-               allow_overwrite: bool=False):
+               allow_overwrite: bool=False,
+               warn: bool=True):
         """Append a TensorGate or a sparse.COO tensor to the network.
 
         Args:
@@ -584,11 +591,12 @@ class Lattice:
                 To overwrite it, set allow_overwrite=True.")
 
         if isinstance(data, TensorGate):
-            warnings.warn("Appending a TensorGate directly may lead to inconsistent mode labeling. \
-                Please ensure that the gate's input modes are a subset of the current mode labels \
-                in the network, and that the output modes are labeled correctly. It is recommended \
-                to append raw tensors and let the network handle mode labeling automatically.",
-                UserWarning)
+            if warn:
+                warnings.warn("Appending a TensorGate directly may lead to inconsistent mode labeling. "
+                    "Please ensure that the gate's input modes are a subset of the current mode labels "
+                    "in the network, and that the output modes are labeled correctly. It is recommended "
+                    "to append raw tensors and let the network handle mode labeling automatically.",
+                    UserWarning)
             if not set(data.inmodes).issubset(set((i, self._current_mode_counters[i])
                                                 for i in range(self.n_modes))):
                 raise ValueError("The input modes of the gate must be a subset of the \
@@ -672,8 +680,8 @@ class Lattice:
             tags (Optional[set[str]], optional): The tags for the gate. Defaults to None.
         """
         if target < 0 or target >= self.n_modes:
-            raise ValueError(f"Target mode {target} is out of bounds for a network with \
-                {self.n_modes} modes.")
+            raise ValueError(f"Target mode {target} is out of bounds for a network with "
+                f"{self.n_modes} modes.")
         
         if tags is None:
             tags = {'ps'}
@@ -681,9 +689,9 @@ class Lattice:
         ps_tensor = fock_tensor_ps(angle, self.n_photons, sparse_tensor=True, check=False)
         self.append(data=ps_tensor, target=(target,), name=name, tags=tags, params=params)
 
-    def append_input_state(self,
-                           target: list[int] | tuple[int, ...],
-                           state: list[int] | tuple[int, ...] | sparse.COO,
+    def append_input_state_single_tensor(self,
+                           state: list[int] | tuple[int, ...] | np.ndarray | sparse.COO,
+                           target: Optional[list[int] | tuple[int, ...]]=None,
                            name: Optional[str]=None,
                            tags: Optional[set[str]]=None):
         """Append an input state preparation gate to the network. Only supports Fock states for now,
@@ -695,7 +703,10 @@ class Lattice:
             name (Optional[str], optional): The name of the gate. Defaults to None.
             tags (Optional[set[str]], optional): The tags for the gate. Defaults to None.
         """
-        if isinstance(state, (list, tuple)):
+        if target is None:
+            target = tuple(range(len(state)))
+        
+        if isinstance(state, (list, tuple, np.ndarray)):
             if len(state) != len(target):
                 raise ValueError(f"State has length {len(state)} but target has length {len(target)}. \
                     Length of the state must match the number of target modes.")
@@ -705,26 +716,211 @@ class Lattice:
         if tags is None:
             tags = {'input'}
 
-        params = {'state': state}
-        self.append(data=state, target=target, name=name, tags=tags, params=params)
+        params = {'state': "|" + "".join(str(s) for s in state) + "⟩"}
+        gate = TensorGate(tensor=state,
+                          inmodes=[],
+                          outmodes=[(t, 0) for t in target],
+                          name=name,
+                          tags=tags,
+                          params=params)
+        self.append(gate, warn=False)
+    
+    def append_input_state(self,
+                           state: list[int] | tuple[int, ...] | np.ndarray,
+                           target: Optional[list[int] | tuple[int, ...]]=None,
+                           name: Optional[str]=None,
+                           tags: Optional[set[str]]=None):
+        """Append an input state preparation gate to the network. Only supports Fock states for now,
+        which can be provided as a list of photon counts per mode.
 
-    def contract_all(self, method: str="greedy") -> None:
+        Args:
+            target (list[int] | tuple[int, ...]): The target modes for the input state.
+            state (list[int] | tuple[int, ...] | sparse.COO): The Fock state for the input state.
+            name (Optional[str], optional): The name of the gate. Defaults to None.
+            tags (Optional[set[str]], optional): The tags for the gate. Defaults to None.
+        """
+        if target is None:
+            target = tuple(range(len(state)))
+        
+        if isinstance(state, (list, tuple, np.ndarray)):
+            if len(state) != len(target):
+                raise ValueError(f"State has length {len(state)} but target has length {len(target)}. \
+                    Length of the state must match the number of target modes.")
+
+        if tags is None:
+            tags = {'input'}
+
+        tensor_list = []
+        for s in state:
+            if s < 0 or s > self.n_photons:
+                raise ValueError(f"Photon count {s} is out of bounds for a network with {self.n_photons} photons.")
+            coords = np.array([s]).reshape(-1, 1)
+            tensor_list.append(sparse.COO(coords=coords, data=1, shape=(self.n_photons+1,)))
+
+        gate_list = []
+        for i, t in enumerate(target):
+            gate_list.append(TensorGate(tensor=tensor_list[i],
+                                        inmodes=[],
+                                        outmodes=[(t, 0)],
+                                        name=f"{name}_mode{t}" if name else None,
+                                        tags=tags,
+                                        params={'state': "|" + str(state[i]) + "⟩"}))
+        
+        for gate in gate_list:
+            self.append(gate, warn=False)
+
+    def append_output_state_single_tensor(self,
+                            state: list[int] | tuple[int, ...] | np.ndarray | sparse.COO,
+                            target: Optional[list[int] | tuple[int, ...]]=None,
+                            name: Optional[str]=None,
+                            tags: Optional[set[str]]=None):
+        """Append an output state projection gate to the network. Only supports Fock states for now,
+        which can be provided as a list of photon counts per mode or as a sparse.COO tensor.
+
+        Args:
+            target (list[int] | tuple[int, ...]): The target modes for the output state.
+            state (list[int] | tuple[int, ...] | sparse.COO): The Fock state for the output state.
+            name (Optional[str], optional): The name of the gate. Defaults to None.
+            tags (Optional[set[str]], optional): The tags for the gate. Defaults to None.
+        """
+        if target is None:
+            target = tuple(range(len(state)))
+        
+        if isinstance(state, (list, tuple, np.ndarray)):
+            if len(state) != len(target):
+                raise ValueError(f"State has length {len(state)} but target has length {len(target)}. \
+                    Length of the state must match the number of target modes.")
+            coords = np.array(state).reshape(-1, 1)
+            state = sparse.COO(coords=coords, data=1, shape=(self.n_photons+1,)*len(target))
+
+        if tags is None:
+            tags = {'output'}
+        else:
+            tags = set(tags).union({'output'})
+
+        params = {'state': "|" + "".join(str(s) for s in state) + "⟩"}
+        gate = TensorGate(tensor=state,
+                          inmodes=[(t, self._current_mode_counters[t]) for t in target],
+                          outmodes=[],
+                          name=name,
+                          tags=tags,
+                          params=params)
+        self.append(gate, warn=False)
+
+    def append_output_state(self,
+                        state: list[int] | tuple[int, ...] | np.ndarray,
+                        target: Optional[list[int] | tuple[int, ...]]=None,
+                        name: Optional[str]=None,
+                        tags: Optional[set[str]]=None):
+        """Append an output state preparation gate to the network. Only supports Fock states for now,
+        which can be provided as a list of photon counts per mode.
+
+        Args:
+            target (list[int] | tuple[int, ...]): The target modes for the output state.
+            state (list[int] | tuple[int, ...] | sparse.COO): The Fock state for the output state.
+            name (Optional[str], optional): The name of the gate. Defaults to None.
+            tags (Optional[set[str]], optional): The tags for the gate. Defaults to None.
+        """
+        if target is None:
+            target = tuple(range(len(state)))
+        
+        if isinstance(state, (list, tuple, np.ndarray)):
+            if len(state) != len(target):
+                raise ValueError(f"State has length {len(state)} but target has length {len(target)}. \
+                    Length of the state must match the number of target modes.")
+
+        if tags is None:
+            tags = {'output'}
+
+        tensor_list = []
+        for s in state:
+            if s < 0 or s > self.n_photons:
+                raise ValueError(f"Photon count {s} is out of bounds for a network with {self.n_photons} photons.")
+            coords = np.array([s]).reshape(-1, 1)
+            tensor_list.append(sparse.COO(coords=coords, data=1, shape=(self.n_photons+1,)))
+
+        gate_list = []
+        for i, t in enumerate(target):
+            gate_list.append(TensorGate(tensor=tensor_list[i],
+                                        inmodes=[(t, self._current_mode_counters[t])],
+                                        outmodes=[],
+                                        name=f"{name}_mode{t}" if name else None,
+                                        tags=tags,
+                                        params={'state': "|" + str(state[i]) + "⟩"}))
+        
+        for gate in gate_list:
+            self.append(gate, warn=False)
+
+    def _kron_prod_all(self) -> None:
+        """Compute the Kronecker product of all gates in the network to obtain a single gate
+        representing the entire network.
+
+        Returns:
+            TensorGate: A single gate representing the entire network after taking the Kronecker
+                product of all gates.
+        """
+        if not self.gates:
+            raise ValueError("No gates to contract in the network.")
+
+        gates_list = list(self.gates.values())
+        present_modes = {mode[0] for gate in gates_list for mode in gate.inmodes + gate.outmodes}
+        missing_modes = [mode for mode in range(self.n_modes) if mode not in present_modes]
+
+        for mode in missing_modes:
+            identity_tensor = fock_tensor_ps(0.0, self.n_photons, sparse_tensor=True, check=False)
+            gates_list.append(
+                TensorGate(
+                    tensor=identity_tensor,
+                    inmodes=[(mode, 0)],
+                    outmodes=[(mode, 1)],
+                    name=f"I{mode}",
+                    tags={"identity"},
+                    params={"angle": 0.0},
+                )
+            )
+
+        gates_list.sort(key=lambda gate: min(mode[0] for mode in gate.inmodes + gate.outmodes))
+        result_gate = gates_list[0]
+        for gate in gates_list[1:]:
+            result_gate = result_gate.kron_prod(gate)
+        result_gate.prune_invalid_states(max_photons=self.n_photons)
+
+        self.gates = {result_gate.name: result_gate}
+        self.length = 1
+        self.gate_graph = {result_gate.name: set()}
+
+    def contract_all(self, method: Optional[str]=None, kron: bool=False) -> None:
         """Contract all gates in the network to obtain the final output tensor.
 
         Args:
-            method (str): The contraction method to use. Currently only supports 'naive'
-            and 'greedy'.
+            method (str): The contraction method to use. Currently only supports 'naive',
+            'greedy' and 'propagation'.
+            kron (bool): Whether to compute the Kronecker product of all gates at the end. Unless 
+                you need to have the network represented as a single gate, it is recommended to
+                keep kron=False to avoid unnecessary computations, and for memory efficiency.
 
         Returns:
             sparse.COO: The resulting tensor after contracting all gates in the network.
         """
+        if method is None:
+            input_gates = [gate_name for gate_name, gate in self.gates.items() if 'input' in gate.tags]
+            if not input_gates:
+                method = 'greedy'  # default to greedy method if not specified
+            else:
+                method = 'propagation'  # default to propagation method if input state is present
+
         if method.lower() == 'naive':
             self._contract_all_naive()
         elif method.lower() == 'greedy':
             self._contract_all_greedy()
+        elif method.lower() == 'propagation':
+            self._contract_all_propagation()
         else:
             raise ValueError(f"Unsupported contraction method: {method}. Supported \
-                methods are 'naive' and 'greedy'.")
+                methods are 'naive', 'greedy', and 'propagation'.")
+
+        if kron:
+            self._kron_prod_all()
 
     def _contract_all_naive(self) -> None:
         """Contract all gates in the network using a naive left-to-right approach.
@@ -749,19 +945,67 @@ class Lattice:
         if not self.gates:
             raise ValueError("No gates to contract in the network.")
 
+        # self.display(method="txt", label_mode="short")
         while self.length > 1:
-            best_score = float('inf')
+            best_score = float('-inf')
             best_pair = None
             for gate1_name in self.gates.keys():
                 for gate2_name in self.gate_graph.get(gate1_name, set()):
                     score = self.contraction_score(gate1_name, gate2_name)
-                    if score < best_score:
+                    if score > best_score:
                         best_score = score
                         best_pair = (gate1_name, gate2_name)
             if best_pair is None:
-                # raise ValueError("No valid pairs of gates to contract. The network may be disconnected.")
+                # raise ValueError("No valid pairs of gates to contract."
+                # " The network may be disconnected.")
+                # print(self.gate_graph, self.gates.keys())
                 break
+            # print(f"Best pair to contract: {best_pair} with score {best_score}")
+            # print(f"gate graph: {self.gate_graph}")
+            # print(f"Common wires: {best_wires}, common modes: {best_modes}")
             self.contract(*best_pair)
+
+    def _contract_all_propagation2(self) -> None:
+        """Contract all gates in the network using a propagation-based approach, where we iteratively
+        contract gates that are directly connected to the input state until we obtain the final output tensor.
+
+        Returns:
+            sparse.COO: The resulting tensor after contracting all gates in the network.
+        """
+        if not self.gates:
+            raise ValueError("No gates to contract in the network.")
+
+        # Find gates that are directly connected to the input state (i.e., have 'input' tag)
+        input_gates = [gate_name for gate_name, gate in self.gates.items() if 'input' in gate.tags]
+        if not input_gates:
+            raise ValueError("No input state found in the network. Please append an input state before \
+                contracting with the 'propagation' method.")
+
+        # Initialize a queue with the input gates
+        queue = input_gates.copy()
+        while queue:
+            input_name = queue.pop(0)
+            while self.gate_graph.get(input_name, set()):
+                gate2_name = next(iter(self.gate_graph.get(input_name, set())))
+                self.contract(input_name, gate2_name, new_gate_name=f"{input_name}@{gate2_name}")
+                input_name = f"{input_name}@{gate2_name}"  # Update input_name to the name of the contracted gate for further propagation
+                # queue.append(f"{input_name}@{gate2_name}")  # Add the contracted gate to the queue for further contraction
+
+    def _contract_all_propagation(self) -> None:
+        """Contract all gates in the network using a propagation-based approach, where we iteratively
+        contract gates that are directly connected to the input state until we obtain the final output tensor.
+
+        Returns:
+            sparse.COO: The resulting tensor after contracting all gates in the network.
+        """
+        if not self.gates:
+            raise ValueError("No gates to contract in the network.")
+
+        # Find gates that are directly connected to the input state (i.e., have 'input' tag)
+        input_gates = [gate_name for gate_name, gate in self.gates.items() if 'input' in gate.tags]
+        if not input_gates:
+            raise ValueError("No input state found in the network. Please append an input state before \
+                contracting with the 'propagation' method.")
 
     def contraction_score(self, gate1_name: str, gate2_name: str) -> float:
         """Compute the contraction score between two gates.
@@ -777,26 +1021,44 @@ class Lattice:
         gate2 = self.gates[gate2_name]
         dim1 = gate1.tensor.ndim
         dim2 = gate2.tensor.ndim
-        nb_common_modes = len(set(gate1.outmodes) & set(gate2.inmodes))
-        if nb_common_modes == 0:
-            return float('inf')  # cannot contract if no common modes
-        dim3 = dim1 + dim2 - 2*nb_common_modes
+        common_wires = ((set(gate1.outmodes) & set(gate2.inmodes))
+                        | (set(gate1.inmodes) & set(gate2.outmodes)))
+        nb_common_wires = len(common_wires)
+
+        # compute the number of common modes between the two gates, to see if some of them are not
+        # connected in which case the resulting gate will have a weird shape (feedbacks, arches)
+        # and the contraction will be less efficient and error-prone. We can use this information
+        # to penalize contractions that would lead to such shapes.
+        common_modes = (set(mode[0] for mode in gate1.modes_order)
+                        & set(mode[0] for mode in gate2.modes_order))
+        if len(common_modes) != nb_common_wires:
+            return float('-inf')
+        
+        dim3 = dim1 + dim2 - 2*nb_common_wires
+        #print(dim3)
+        # if dim3 == 0:
+        #    return float('inf')  # avoid division by zero, treat as best score since it means the resulting gate is a scalar
         cost1 = self.space_cost(dim1)
         cost2 = self.space_cost(dim2)
         cost3 = self.space_cost(dim3)
-        return (cost1 + cost2) / cost3  # higher score means more efficient contraction
+        return cost1 + cost2 - cost3  # higher score means more efficient contraction
 
-    def space_cost(self, dim: int) -> int:
+    def space_cost(self, dim: int, state_gate: bool=False) -> int:
         """Compute an estimate of the space cost of a gate.
 
         Args:
             dim (int): The dimension of the gate.
+            state_gate (bool): Whether the gate represents a quantum state.
 
         Returns:
             int: The space cost of the gate.
         """
-        m = dim // 2  # number of modes that the gate acts on
-        cost = m * math.comb(m + self.n_photons - 1, self.n_photons)  # number of Fock states for each mode
+        if state_gate:
+            cost = math.comb(dim + self.n_photons, self.n_photons)  # number of Fock states for each mode
+        elif dim == 0:
+            cost = 1  # scalar
+        else:
+            cost = np.sum([math.comb(dim + i - 1, i)**2 for i in range(self.n_photons + 1)])  # number of Fock states for each mode
         return cost
 
     def topological_sort(self) -> list[str]:
@@ -826,8 +1088,8 @@ class Lattice:
         return sorted_gates[::-1]  # reverse the stack to get the correct order
 
     # TODO: implement a more robust display method that can handle more complex networks notably
-    # with cycles or multiple connections between gates. This may involve implementing a custom
-    # graph drawing algorithm or using a library like Graphviz to visualize the gate graph structure.
+        # with cycles or multiple connections between gates. This may involve implementing a custom
+        # graph drawing algorithm or using a library like Graphviz to visualize the gate graph structure.
     def display_text(self, label_mode: Optional[str]="full"):
         """Display the tensor network in text format."""
         tnd = TNSketch(n_modes=self.n_modes, name=self.name, label_mode=label_mode)
@@ -853,10 +1115,18 @@ class Lattice:
         tnd.finalize()
 
     def display(self, method: str="text", label_mode: str="full"):
-        """Display the gates in the network and their connections."""
-        if method.lower() == "text":
+        """Display the gates in the network and their connections.
+        Only graphs without cycles or multiple connections between the same gates can be displayed for now,
+        attempting to display graphs with cycles will raise an error. The display method can be chosen between
+        a simple text-based representation and a more visual Matplotlib-based representation.
+        
+        Args:
+            method (str): The method to use for displaying the network. Supported methods are 'text' and 'plt'.
+            label_mode (str): The level of detail to include in gate labels. Supported modes are 'full', 'short', 'minimal', and 'no_values'.
+        """
+        if method.lower() in ["text", "txt"]:
             self.display_text(label_mode=label_mode)
-        elif method.lower() == "plt":
+        elif method.lower() in ["plt", "matplotlib", "pyplot", "plot"]:
             self.display_plt(label_mode=label_mode)
         else:
             raise ValueError(f"Unknown display method: {method}")
