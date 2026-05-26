@@ -163,9 +163,9 @@ def display_circuit(circuit: Sequence[Gate],
     lattice = tnc.Lattice(n_modes, 1, name="Generated Circuit")
     for i, gate in enumerate(circuit):
         if len(gate) == 4:
-            lattice.append_bs((gate[0], gate[1]), (gate[2], gate[3]), f"G{i}")
+            lattice.append_bs((gate[0], gate[1]), (gate[2], gate[3]), f"BS{i}")
         else:
-            lattice.append_ps(gate[0], gate[1], f"G{i}")
+            lattice.append_ps(gate[0], gate[1], f"PS{i}")
     lattice.display(method=method, label_mode='minimal')
 
 def main():
@@ -173,15 +173,15 @@ def main():
     n_layers = 6
     circuit1 = rnd_BS_circuit(n_modes, n_layers)
     circuit2 = rnd_BSPS_lasagna(n_modes, n_layers)
-    circuit3 = rnd_BSPS_mixed(n_modes, n_layers, ps_replacement_ratio=0.5)
+    circuit3 = rnd_BSPS_mixed(n_modes, n_layers, ps_replacement_ratio=0.25)
 
-    print("Random BS circuit:")
-    display_circuit(circuit1)
+    # print("Random BS circuit:")
+    # display_circuit(circuit1)
     
-    print("Random BS+PS lasagna circuit:")
-    display_circuit(circuit2)
+    # print("Random BS+PS lasagna circuit:")
+    # display_circuit(circuit2)
     
-    print("Random BS+PS mixed circuit:")
+    # print("Random BS+PS mixed circuit:")
     display_circuit(circuit3)
 
 if __name__ == "__main__":

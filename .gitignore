@@ -129,3 +129,7 @@ dmypy.json
 *.swo
 *~
 .DS_Store
+
+# Images
+*.png
+images/

@@ -143,50 +143,6 @@ class TensorGate:
         self.tensor = self.tensor.transpose(new_axis_order)
         self.update_structure(new_modes_order, new_inmodes=self.inmodes, new_outmodes=self.outmodes)
 
-    """
-    def contract2(self,
-                 other: 'TensorGate',
-                 contract_modes: Optional[list[tuple[int, int]] | set[tuple[int, int]]]=None,
-                 new_name: Optional[str]=None,
-                 new_tags: Optional[set[str]]=None
-                 ) -> 'TensorGate':
-        modes_order_both = self.modes_order + other.modes_order
-        contract_modes = None
-        if contract_modes is None:
-            contract_modes = find_duplicates(modes_order_both)
-            if not contract_modes:
-                raise ValueError("No common modes to contract on. Please specify contract_modes explicitly.")
-        
-        result_inmodes = [mode for mode in self.modes_order if mode in self.inmodes and mode not in contract_modes] + \
-                         [mode for mode in other.modes_order if mode in other.inmodes and mode not in contract_modes]
-        result_outmodes = [mode for mode in self.modes_order if mode in self.outmodes and mode not in contract_modes] + \
-                          [mode for mode in other.modes_order if mode in other.outmodes and mode not in contract_modes]
-        result_inmodes.sort()
-        result_outmodes.sort()
-        result_modes_order = result_inmodes + result_outmodes
-        if find_duplicates(result_modes_order):
-            raise ValueError("Contract modes cannot have duplicates in the resulting gate. Please resolve self-contractions first.")
-        alphabet = string.ascii_letters
-        mode_to_char = {mode: alphabet[i] for i, mode in enumerate(set(modes_order_both))}
-        
-        subscript_in_a = "".join(mode_to_char[mode] for mode in self.modes_order)
-        subscript_in_b = "".join(mode_to_char[mode] for mode in other.modes_order)
-        subscript_in = f"{subscript_in_a},{subscript_in_b}"
-        subscript_out = "".join(mode_to_char[mode] for mode in result_modes_order)
-        einsum_str = f"{subscript_in}->{subscript_out}"
-        print(f"Einstein summation notation: {einsum_str}")
-        result_tensor = sparse.einsum(einsum_str, self.tensor, other.tensor)
-        result_gate = TensorGate(result_tensor,
-                                 inmodes=result_inmodes,
-                                 outmodes=result_outmodes,
-                                 modes_order=result_modes_order,
-                                 name=new_name,
-                                 tags=new_tags)
-        result_gate.update_structure(result_modes_order)
-        result_gate.canonicalize_axes()
-        return result_gate
-    """
-
     def contract(self,
                  other: 'TensorGate',
                  contract_modes: Optional[list[tuple[int, int]]]=None,
@@ -201,21 +157,26 @@ class TensorGate:
                 automatically contract over all common modes between this gate's outmodes and the
                 other gate's inmodes.
             new_name (Optional[str]): An optional name for the resulting contracted gate.
-            new_tags (Optional[set[str]]): An optional set of tags for the resulting contracted gate.
+            new_tags (Optional[set[str]]): An optional set of tags for the resulting contracted
+                gate.
 
         Returns:
             TensorGate: The resulting contracted gate.
         """
         # print(f"-----Contracting gates: {self.name} and {other.name}-----")
-        common_modes = set(self.outmodes) & set(other.inmodes) | set(self.inmodes) & set(other.outmodes)
+        common_modes = set(self.outmodes) & set(other.inmodes) | \
+                       set(self.inmodes) & set(other.outmodes)
         if contract_modes is None:
             contract_modes = list(common_modes)
             if not contract_modes:
-                raise ValueError("No common modes to contract on. Please specify contract_modes explicitly.")
+                raise ValueError("No common modes to contract on."
+                                 " Please specify contract_modes explicitly.")
 
         contract_modes = sorted(contract_modes, key=lambda x: x[0])
-        if any(len(self.axis_map[mode]) > 1  for mode in contract_modes) or any(len(other.axis_map[mode]) > 1 for mode in contract_modes):
-            raise ValueError("Contract modes cannot have duplicates in either gate. Please resolve self-contractions first.")
+        if any(len(self.axis_map[mode]) > 1  for mode in contract_modes) or \
+            any(len(other.axis_map[mode]) > 1 for mode in contract_modes):
+            raise ValueError("Contract modes cannot have duplicates in either gate."
+                             " Please resolve self-contractions first.")
         # axes_a = [self.axis_map[mode][0] for mode in contract_modes]
         # axes_b = [other.axis_map[mode][0] for mode in contract_modes]
         axes_a = [self.modes_order.index(mode) for mode in contract_modes]
@@ -226,9 +187,11 @@ class TensorGate:
         if not axes_a or not axes_b:
             raise ValueError("Incompatible contraction modes. Check axis mapping")
 
-        # remaining_modes_a = [mode for mode in self.inmodes + self.outmodes if mode not in contract_modes]
+        # remaining_modes_a = [mode for mode in self.inmodes + self.outmodes
+        #                      if mode not in contract_modes]
         # remaining_modes_a.sort(key=lambda m: self.axis_map[m])
-        # remaining_modes_b = [mode for mode in other.inmodes + other.outmodes if mode not in contract_modes]
+        # remaining_modes_b = [mode for mode in other.inmodes + other.outmodes
+        #                      if mode not in contract_modes]
         # remaining_modes_b.sort(key=lambda m: other.axis_map[m])
         remaining_modes_a = [mode for mode in self.modes_order if mode not in contract_modes]
         remaining_modes_b = [mode for mode in other.modes_order if mode not in contract_modes]
@@ -237,10 +200,21 @@ class TensorGate:
         for i, mode in enumerate(remaining_modes):
             result_axis_map[mode].append(i)
 
-        # Perform the contraction using the specified modes
-        result_tensor = sparse.tensordot(self.tensor,
-                                         other.tensor,
-                                         axes=(axes_a, axes_b))
+        self_nnz = getattr(self.tensor, "nnz", 1)
+        other_nnz = getattr(other.tensor, "nnz", 1)
+        if self_nnz == 0 or other_nnz == 0:
+            result_shape = tuple(self.tensor.shape[i]
+                                 for i in range(self.tensor.ndim) if i not in axes_a) + \
+                           tuple(other.tensor.shape[i]
+                                 for i in range(other.tensor.ndim) if i not in axes_b)
+            empty_coords = np.empty((len(result_shape), 0), dtype=int)
+            empty_data = np.empty((0,), dtype=np.result_type(self.tensor.dtype, other.tensor.dtype))
+            result_tensor = sparse.COO(coords=empty_coords, data=empty_data, shape=result_shape)
+        else:
+            # Perform the contraction using the specified modes
+            result_tensor = sparse.tensordot(self.tensor,
+                                             other.tensor,
+                                             axes=(axes_a, axes_b))
 
         new_inmodes = [mode for mode in self.inmodes if mode not in contract_modes] + \
                       [mode for mode in other.inmodes if mode not in contract_modes]
@@ -258,8 +232,8 @@ class TensorGate:
                                  modes_order=remaining_modes,
                                  name=new_name if new_name is not None else None,
                                  tags=new_tags if new_tags is not None else {'contracted'})
-        result_gate.self_contract()  # Automatically contract any self-loops that may have been created
-        result_gate.canonicalize_axes()  # Ensure consistent ordering of modes and axes in the result
+        result_gate.self_contract()  # Automatically contract any self-loops
+        result_gate.canonicalize_axes()  # Ensure consistent ordering of modes and axes
         return result_gate
 
         # new_inmodes = [m for m in remaining_modes_a if m in self.inmodes] + \
@@ -283,7 +257,7 @@ class TensorGate:
         #                          axis_map=final_axis_map,
         #                          name=new_name if new_name is not None else None,
         #                          tags=new_tags if new_tags is not None else {'contracted'})
-        # result_gate.canonicalize_axes()  # Ensure consistent ordering of modes and axes in the result
+        # result_gate.canonicalize_axes()  # Ensure consistent ordering of modes and axes
 
         # return result_gate
 
@@ -299,17 +273,19 @@ class TensorGate:
         Args:
             contract_modes (Optional[list[tuple[int, int]]]): The modes to contract over. The modes
                 need to be present at least twice across both inmodes and outmodes. If None, will
-                automatically contract over all common modes between this gate's inmodes and outmodes.
+                automatically contract over all common modes between this gate's inmodes and
+                outmodes.
             new_name (Optional[str]): An optional name for the resulting contracted gate.
-            new_tags (Optional[set[str]]): An optional set of tags for the resulting contracted gate.
+            new_tags (Optional[set[str]]): An optional set of tags for the resulting contracted
+                gate.
 
         Returns:
             TensorGate: The resulting contracted gate.
         """
-        old_inmodes = copy.deepcopy(self.inmodes)
-        old_outmodes = copy.deepcopy(self.outmodes)
-        old_modes_order = copy.deepcopy(self.modes_order)
-        old_axis_map = copy.deepcopy(self.axis_map)
+        # old_inmodes = copy.deepcopy(self.inmodes)
+        # old_outmodes = copy.deepcopy(self.outmodes)
+        # old_modes_order = copy.deepcopy(self.modes_order)
+        # old_axis_map = copy.deepcopy(self.axis_map)
         if contract_modes is None:
             contract_modes = find_duplicates(self.modes_order)
             if not contract_modes:
@@ -364,6 +340,16 @@ class TensorGate:
         new_axis_map = defaultdict(list)
 
         n_modes_self = len(self.modes_order)
+
+        self_nnz = getattr(self.tensor, "nnz", 1)
+        other_nnz = getattr(other.tensor, "nnz", 1)
+        if self_nnz == 0 or other_nnz == 0:
+            result_shape = self.tensor.shape + other.tensor.shape
+            empty_coords = np.empty((len(result_shape), 0), dtype=int)
+            empty_data = np.empty((0,), dtype=np.result_type(self.tensor.dtype, other.tensor.dtype))
+            new_tensor = sparse.COO(coords=empty_coords, data=empty_data, shape=result_shape)
+        else:
+            new_tensor = sparse.tensordot(self.tensor, other.tensor, axes=0)
 
         for mode, local_axis in self.axis_map.items():
             new_axis_map[mode] = local_axis.copy()
@@ -863,12 +849,39 @@ class Lattice:
             raise ValueError("No gates to contract in the network.")
 
         gates_list = list(self.gates.values())
-        present_modes = {mode[0] for gate in gates_list for mode in gate.inmodes + gate.outmodes}
+        scalar_factor = 1.0 + 0.0j
+        non_scalar_gates = []
+
+        for gate in gates_list:
+            if not gate.inmodes and not gate.outmodes:
+                tensor = gate.tensor
+                if hasattr(tensor, "todense"):
+                    scalar_factor *= tensor.todense().item()
+                else:
+                    scalar_factor *= np.asarray(tensor).item()
+            else:
+                non_scalar_gates.append(gate)
+
+        if not non_scalar_gates:
+            final_tensor = sparse.COO(coords=np.zeros((0), dtype=int), data=np.array([scalar_factor]), shape=())
+            final_gate = TensorGate(
+                tensor=final_tensor,
+                inmodes=[],
+                outmodes=[],
+                name="scalar_product",
+                tags={"scalar_product"},
+            )
+            self.gates = {final_gate.name: final_gate}
+            self.length = 1
+            self.gate_graph = {final_gate.name: set()}
+            return
+
+        present_modes = {mode[0] for gate in non_scalar_gates for mode in gate.inmodes + gate.outmodes}
         missing_modes = [mode for mode in range(self.n_modes) if mode not in present_modes]
 
         for mode in missing_modes:
             identity_tensor = fock_tensor_ps(0.0, self.n_photons, sparse_tensor=True, check=False)
-            gates_list.append(
+            non_scalar_gates.append(
                 TensorGate(
                     tensor=identity_tensor,
                     inmodes=[(mode, 0)],
@@ -879,10 +892,11 @@ class Lattice:
                 )
             )
 
-        gates_list.sort(key=lambda gate: min(mode[0] for mode in gate.inmodes + gate.outmodes))
-        result_gate = gates_list[0]
-        for gate in gates_list[1:]:
+        non_scalar_gates.sort(key=lambda gate: min(mode[0] for mode in gate.inmodes + gate.outmodes))
+        result_gate = non_scalar_gates[0]
+        for gate in non_scalar_gates[1:]:
             result_gate = result_gate.kron_prod(gate)
+        result_gate.tensor = result_gate.tensor * scalar_factor
         result_gate.prune_invalid_states(max_photons=self.n_photons)
 
         self.gates = {result_gate.name: result_gate}
@@ -1021,16 +1035,16 @@ class Lattice:
         gate2 = self.gates[gate2_name]
         dim1 = gate1.tensor.ndim
         dim2 = gate2.tensor.ndim
-        common_wires = ((set(gate1.outmodes) & set(gate2.inmodes))
-                        | (set(gate1.inmodes) & set(gate2.outmodes)))
+        common_wires = (set(gate1.outmodes) & set(gate2.inmodes)) | \
+            (set(gate1.inmodes) & set(gate2.outmodes))
         nb_common_wires = len(common_wires)
 
         # compute the number of common modes between the two gates, to see if some of them are not
         # connected in which case the resulting gate will have a weird shape (feedbacks, arches)
         # and the contraction will be less efficient and error-prone. We can use this information
         # to penalize contractions that would lead to such shapes.
-        common_modes = (set(mode[0] for mode in gate1.modes_order)
-                        & set(mode[0] for mode in gate2.modes_order))
+        common_modes = set(mode[0] for mode in gate1.modes_order) & \
+            set(mode[0] for mode in gate2.modes_order)
         if len(common_modes) != nb_common_wires:
             return float('-inf')
         
