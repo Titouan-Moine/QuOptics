@@ -169,20 +169,20 @@ def display_circuit(circuit: Sequence[Gate],
     lattice.display(method=method, label_mode='minimal')
 
 def main():
-    n_modes = 10
-    n_layers = 6
+    n_modes = 8
+    n_layers = 3
     circuit1 = rnd_BS_circuit(n_modes, n_layers)
     circuit2 = rnd_BSPS_lasagna(n_modes, n_layers)
-    circuit3 = rnd_BSPS_mixed(n_modes, n_layers, ps_replacement_ratio=0.25)
+    circuit3 = rnd_BSPS_mixed(n_modes, n_layers, ps_replacement_ratio=0.4)
 
     # print("Random BS circuit:")
     # display_circuit(circuit1)
     
     # print("Random BS+PS lasagna circuit:")
-    # display_circuit(circuit2)
+    display_circuit(circuit2)
     
     # print("Random BS+PS mixed circuit:")
-    display_circuit(circuit3)
+    # display_circuit(circuit3)
 
 if __name__ == "__main__":
     main()

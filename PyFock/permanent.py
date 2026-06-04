@@ -168,9 +168,9 @@ def ryser_hyperrect(U: np.ndarray, vecn: np.ndarray, vecm: np.ndarray, n: Option
         prod = np.prod([pow(np.sum([c[j]*U[i, nzm_index[j]]
                                     for j in range(len(nzm))]), nzn[i]) for i in range(len(nzn))])
         sign = (-1)**(n-np.sum(c))
-        
+
         perm += sign * binom_prod * prod
-    
+
     return perm
 
 def gray_mixed(radix: np.ndarray,

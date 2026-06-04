@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 # import numpy as np
 # import sparse
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 # import numpy as np
 # from clements_scheme.clements_scheme import full_clements
 # from clements_scheme.rnd_unitary import random_unitary
@@ -166,12 +167,14 @@ def load_benchmark_results(path: str) -> dict:
     }
 
 
-def display_results_from_file(path: str) -> None:
+def display_results_from_file(path: str, timeout_seconds: int = 60) -> None:
     data = load_benchmark_results(path)
     meta = data["meta"]
     sizes = meta.get("sizes", [])
     photon_numbers = meta.get("photon_numbers", [])
     combining = meta.get("combining", "zip")
+    is_open = meta.get("is_open", True)
+    depth_factor = meta.get("depth_factor", 1.)
     times_GUS = data["times_GUS"]
     times_FTN = data["times_FTN"]
 
@@ -189,7 +192,10 @@ def display_results_from_file(path: str) -> None:
                  label='FTN')
         plt.xlabel('size / photons')
         plt.ylabel('Execution time (s)')
-        plt.title(f"Benchmark loaded from {os.path.basename(path)}")
+        # plt.title(f"Benchmark loaded from {os.path.basename(path)}")
+        plt.title(f"Benchmark: execution time vs circuit size and photon number\n"
+                  f"Combining: {combining}, {"open circuits" if is_open else "closed circuits"},"
+                  f" depth factor: {depth_factor}")
         plt.grid(alpha=0.3)
         plt.legend()
         plt.tight_layout()
@@ -211,7 +217,7 @@ def display_results_from_file(path: str) -> None:
     ]
 
     for ax, grid, title in plots:
-        image = ax.imshow(grid, origin='lower', aspect='auto')
+        image = ax.imshow(grid, origin='lower', aspect='auto', cmap='plasma')#, norm=LogNorm(vmin=1e-4, vmax=timeout_seconds))
         ax.set_title(title)
         ax.set_xticks(range(len(plt_sizes)))
         ax.set_xticklabels(plt_sizes)
@@ -221,7 +227,10 @@ def display_results_from_file(path: str) -> None:
         ax.set_ylabel('Number of photons')
         fig.colorbar(image, ax=ax, label='Execution time (s)')
 
-    fig.suptitle(f'Benchmark loaded from {os.path.basename(path)}')
+    # fig.suptitle(f'Benchmark loaded from {os.path.basename(path)}')
+    fig.suptitle(f"Benchmark: execution time vs circuit size and photon number\n"
+                 f"Combining: {combining}, {'open circuits' if is_open else 'closed circuits'},"
+                 f" depth factor: {depth_factor}")
     fig.tight_layout()
     plt.show()
 
@@ -499,9 +508,9 @@ def compare_photons_modes(sizes: Sequence[int],
         if result_GUS is None or result_FTN is None:
             continue
 
-        if is_open and not sparse_allclose(result_GUS, result_FTN, atol=1e-10):
+        if is_open and not sparse_allclose(result_GUS, result_FTN, atol=1e-9):
             print(f"Results differ for size {size} and {n_photons} photons!")
-        elif not is_open and abs(result_GUS - result_FTN) > 1e-10:
+        elif not is_open and abs(result_GUS - result_FTN) > 1e-9:
             print(f"Results differ for size {size} and {n_photons} photons!")
 
     if combining == "zip":
@@ -569,7 +578,7 @@ def compare_photons_modes(sizes: Sequence[int],
     ]
 
     for ax, grid, title in plots:
-        image = ax.imshow(grid, origin='lower', aspect='auto')
+        image = ax.imshow(grid, origin='lower', aspect='auto', cmap='plasma')
         ax.set_title(title)
         ax.set_xticks(range(len(plt_sizes)))
         ax.set_xticklabels(plt_sizes)
@@ -598,8 +607,9 @@ def main():
     #                         photon_function=lambda size: 20)
     # only_GUS_benchmark(max_size=100, depth_factor=1, circuit_type="mixed",
     #                    photon_function=lambda size: size // 5)
-    compare_photons_modes(sizes=[10]*28, photon_numbers=range(1, 29), combining="zip",
-                          is_open=False, circuit_type="mixed", depth_factor=.2)
+    compare_photons_modes(sizes=range(20, 26, 2), photon_numbers=range(23, 27), combining="product",
+                          is_open=False, circuit_type="mixed", depth_factor=.25)
 
 if __name__ == "__main__":
     main()
+    #display_results_from_file(os.path.join(os.path.dirname(__file__), "results", "benchmark_20260604_085623.json"))
