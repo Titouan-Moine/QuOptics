@@ -140,7 +140,28 @@ def rnd_circuit(n_modes: int,
                 n_layers: int,
                 ps_replacement_ratio: float=0.25,
                 circuit_type: str="lasagna") -> Sequence[Gate]:
-    """Generate a random circuit with the specified number of modes and layers, comprised of beamsplitters and phase shifts."""
+    """Generates a random circuit with the specified number of modes,
+    layers and type of circuit
+
+    Args:
+        n_modes (int): number of modes
+        n_layers (int): number of layers
+        ps_replacement_ratio (float, optional): exclusive to "mixed"
+            circuits: proportion of bs gates that will be replaced with phase shifters.
+            Defaults to 0.25.
+        circuit_type (str, optional): type of circuit to generate, either "lasagna", "mixed",
+            "clements_like", or "BS_only". Defaults to "lasagna".
+
+    Raises:
+        ValueError: if an invalid circuit type is provided.
+
+    Returns:
+        Sequence[Gate]: a list of tuples representing the beamsplitters and phase shifts in
+            the circuit. Each beamsplitter tuple has the form (m, n, phi, theta), where m and
+            n are the target modes, and phi and theta are the parameters of the beamsplitter.
+            Each phase shift tuple has the form (m, phi), where m is the target mode and phi
+            is the phase shift.
+    """
     if circuit_type == "lasagna":
         return rnd_BSPS_lasagna(n_modes, n_layers)
     elif circuit_type == "mixed":
@@ -150,7 +171,7 @@ def rnd_circuit(n_modes: int,
     elif circuit_type == "BS_only":
         return rnd_BS_circuit(n_modes, n_layers)
     else:
-        raise ValueError("Invalid circuit type. Choose 'lasagna' or 'mixed'.")
+        raise ValueError("Invalid circuit type. Choose 'lasagna', 'mixed', 'clements_like', or 'BS_only'.")
 
 def display_circuit(circuit: Sequence[Gate],
                     method: str="plt",

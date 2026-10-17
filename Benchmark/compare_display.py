@@ -190,11 +190,12 @@ def display_results_from_file(path: str, timeout_seconds: int = 60) -> None:
                  label='GUS')
         plt.plot(labels, ftn_values, color='red', marker='s', linestyle='--',
                  label='FTN')
+        plt.yscale('log')
         plt.xlabel('size / photons')
         plt.ylabel('Execution time (s)')
         # plt.title(f"Benchmark loaded from {os.path.basename(path)}")
         plt.title(f"Benchmark: execution time vs circuit size and photon number\n"
-                  f"Combining: {combining}, {"open circuits" if is_open else "closed circuits"},"
+                  f"{"open circuits" if is_open else "closed circuits"},"
                   f" depth factor: {depth_factor}")
         plt.grid(alpha=0.3)
         plt.legend()
@@ -217,7 +218,7 @@ def display_results_from_file(path: str, timeout_seconds: int = 60) -> None:
     ]
 
     for ax, grid, title in plots:
-        image = ax.imshow(grid, origin='lower', aspect='auto', cmap='plasma')#, norm=LogNorm(vmin=1e-4, vmax=timeout_seconds))
+        image = ax.imshow(grid, origin='lower', aspect='auto', cmap='viridis', norm=LogNorm(vmin=1e-4, vmax=timeout_seconds))
         ax.set_title(title)
         ax.set_xticks(range(len(plt_sizes)))
         ax.set_xticklabels(plt_sizes)
@@ -229,7 +230,7 @@ def display_results_from_file(path: str, timeout_seconds: int = 60) -> None:
 
     # fig.suptitle(f'Benchmark loaded from {os.path.basename(path)}')
     fig.suptitle(f"Benchmark: execution time vs circuit size and photon number\n"
-                 f"Combining: {combining}, {'open circuits' if is_open else 'closed circuits'},"
+                 f"{'open circuits' if is_open else 'closed circuits'},"
                  f" depth factor: {depth_factor}")
     fig.tight_layout()
     plt.show()
@@ -607,9 +608,9 @@ def main():
     #                         photon_function=lambda size: 20)
     # only_GUS_benchmark(max_size=100, depth_factor=1, circuit_type="mixed",
     #                    photon_function=lambda size: size // 5)
-    compare_photons_modes(sizes=range(20, 26, 2), photon_numbers=range(23, 27), combining="product",
-                          is_open=False, circuit_type="mixed", depth_factor=.25)
+    compare_photons_modes(sizes=[6]*2, photon_numbers=range(50, 60, 5), combining="zip",
+                          is_open=False, circuit_type="mixed", depth_factor=.2)
 
 if __name__ == "__main__":
     main()
-    #display_results_from_file(os.path.join(os.path.dirname(__file__), "results", "benchmark_20260604_085623.json"))
+    # display_results_from_file(os.path.join(os.path.dirname(__file__), "results", "benchmark_20260527_072312_max50.json"))
