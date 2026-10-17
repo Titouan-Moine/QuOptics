@@ -33,7 +33,7 @@ quantity is the bosonic transition amplitude
 
 $$
 \langle s|U|n\rangle =
-\frac{\operatorname{Perm}(U_{s,n})}
+\frac{\mathrm{Perm}(U_{s,n})}
 {\sqrt{\prod_i s_i!\prod_j n_j!}},
 $$
 
